@@ -9,7 +9,6 @@ import AuditLog from './pages/AuditLog';
 import ContractDetail from './pages/ContractDetail';
 import Contracts from './pages/Contracts';
 import Deadlines from './pages/Deadlines';
-import FuturePlaceholder from './pages/FuturePlaceholder';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Obligations from './pages/Obligations';

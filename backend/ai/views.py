@@ -1,8 +1,8 @@
-"""AI status + assisted classification endpoints (read-only, rate-limited)."""
-from rest_framework.decorators import api_view, permission_classes
+"""AI status + assisted classification endpoints."""
+from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+from rest_framework.throttling import UserRateThrottle
 
 from clauses.detector import classify
 
@@ -10,7 +10,7 @@ from . import service
 
 
 class BurstThrottle(UserRateThrottle):
-    rate = "30/min"
+    scope = "ai_burst"
 
 
 @api_view(["GET"])
@@ -21,6 +21,7 @@ def ai_status(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([BurstThrottle])
 def ai_classify(request):
     text = (request.data.get("text") or "").strip()
     if len(text) < 10:
@@ -36,6 +37,7 @@ def ai_classify(request):
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
+@throttle_classes([BurstThrottle])
 def ai_ask(request):
     from workspaces.models import Workspace
 

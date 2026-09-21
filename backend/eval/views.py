@@ -11,17 +11,17 @@ from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.throttling import AnonRateThrottle
 
 from .seed import EVAL_PUBLIC_SLUG, VISITOR_EMAIL, seed_eval_workspace
 
 
-class EvalSessionThrottle(ScopedRateThrottle):
-    THROTTLE_RATES = {"eval_session": "30/hour"}
+class EvalSessionThrottle(AnonRateThrottle):
+    scope = "eval_session"
 
 
-class EvalResetThrottle(ScopedRateThrottle):
-    THROTTLE_RATES = {"eval_reset": "10/hour"}
+class EvalResetThrottle(AnonRateThrottle):
+    scope = "eval_reset"
 
 
 def _eval_workspace():
