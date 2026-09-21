@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { getErrorMessage } from '../api';
+import { useQuery } from '@tanstack/react-query';
+import { api, getErrorMessage } from '../api';
 import { useAuth } from '../auth';
 
 export default function Landing() {
@@ -8,6 +9,7 @@ export default function Landing() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const evalInfo = useQuery({ queryKey: ['eval-info'], queryFn: api.evalInfo, staleTime: 60_000, retry: 1 });
 
   async function onExplore() {
     setBusy(true);
@@ -33,14 +35,25 @@ export default function Landing() {
         risk, and a tamper-resistant audit trail. Deterministic business logic works
         even when AI is unavailable.
       </p>
-      <div className="cta-row">
-        <button className="btn" type="button" onClick={onExplore} disabled={busy}>
-          {busy ? 'Opening…' : 'Explore ClauseRadar'}
-        </button>
-        <Link className="btn secondary" to="/register">Create Workspace</Link>
+      <div className="card" style={{ maxWidth: 640 }}>
+        <h3 style={{ marginTop: 0 }}>Try it now — no account, no API key</h3>
+        {evalInfo.isPending && <p className="muted">Checking evaluation workspace…</p>}
+        {evalInfo.isError && <p className="muted">Evaluation workspace status unavailable (is the API running?).</p>}
+        {evalInfo.data && evalInfo.data.seeded && (
+          <p className="muted">
+            Live demo data: {evalInfo.data.contracts} contracts · {evalInfo.data.clauses} clauses ·{' '}
+            {evalInfo.data.obligations} obligations with evidence, deadlines, risk scores, and audit history.
+          </p>
+        )}
+        <div className="cta-row">
+          <button className="btn" type="button" onClick={onExplore} disabled={busy}>
+            {busy ? 'Opening…' : 'Explore ClauseRadar'}
+          </button>
+          <Link className="btn secondary" to="/register">Create Workspace</Link>
+        </div>
+        {error && <p className="form-error" role="alert">{error}</p>}
+        <p className="muted" style={{ fontSize: 13 }}>No signup needed — Explore opens a real, seeded evaluation workspace backed by the same API.</p>
       </div>
-      {error && <p className="form-error" role="alert">{error}</p>}
-      <p className="muted">No signup needed — Explore opens a real, seeded evaluation workspace backed by the same API.</p>
       <div className="grid" style={{ marginTop: 28 }}>
         <div className="card"><h3>Evidence first</h3><p className="muted">Every obligation links to its source document, page, and clause text.</p></div>
         <div className="card"><h3>Human verification</h3><p className="muted">Nothing becomes operational until a reviewer confirms the source.</p></div>
