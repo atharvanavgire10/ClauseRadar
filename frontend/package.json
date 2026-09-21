@@ -8,6 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --port 5173",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install chromium",
     "test:watch": "vitest",
     "lint": "eslint src --ext .ts,.tsx,.js,.jsx --max-warnings 0",
     "typecheck": "tsc --noEmit"
@@ -19,6 +21,7 @@
     "react-router-dom": "^6.27.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
