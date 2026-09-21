@@ -52,9 +52,12 @@ def test_redis_broker_reachable(db):
         pytest.skip("no Redis broker reachable")
 
 
+@pytest.mark.django_db(transaction=True)
 def test_worker_executes_task_through_broker(db):
     """End-to-end broker→worker→Postgres using the real risk-assess task.
 
+    Uses committed transactions (not the default rolled-back test transaction)
+    because the worker is a SEPARATE process and can only see committed rows.
     Skips unless a worker is actually consuming (proves the worker path instead
     of hiding behind eager execution).
     """
