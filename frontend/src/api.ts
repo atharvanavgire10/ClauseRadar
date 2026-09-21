@@ -301,6 +301,24 @@ export interface TaskItem {
   created_at: string;
 }
 
+export interface SearchHit {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string;
+  snippet: string;
+  rank: number;
+  contract_id: string | null;
+  document_id?: string;
+}
+
+export interface SearchResponse {
+  query: string;
+  count: number;
+  counts: Record<string, number>;
+  results: SearchHit[];
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -381,6 +399,7 @@ export const api = {
     request<{ contract: string; deadlines: number }>('/api/v1/deadlines/generate/', { method: 'POST', body: JSON.stringify({ contract: contractId }) }),
   workspaceMembers: (workspaceId: string) =>
     request<WorkspaceMember[]>(`/api/v1/workspaces/${workspaceId}/members/`),
+  unifiedSearch: (params: string) => request<SearchResponse>(`/api/v1/search/${params}`),
 
   comments: (query = '') => request<Paginated<Comment>>(`/api/v1/comments/${query}`),
   createComment: (input: { obligation?: string; contract?: string; body: string }) =>
