@@ -499,7 +499,9 @@ def test_public_eval_flow_in_vercel_mode(db):
 
     seed_eval_workspace()
     with override_settings(CELERY_TASK_ALWAYS_EAGER=False, VERCEL_DEPLOYMENT=True):
-        anon = APIClient()
+        # Distinct throttle identity: the rate-limit test in test_eval.py
+        # exhausts the default IP bucket within one pytest process.
+        anon = APIClient(REMOTE_ADDR="10.10.10.10")
         r = anon.post("/api/v1/eval/session/")
         assert r.status_code == 200, r.content
         authed = APIClient(HTTP_AUTHORIZATION=f"Token {r.json()['token']}")
