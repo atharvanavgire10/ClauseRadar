@@ -114,4 +114,10 @@ def activate_obligation(obligation_id, *, actor) -> Obligation:
             generate_recurring_for_obligation(ob.id)
         except Exception:  # pragma: no cover - recurrence must never break activation
             pass
+        try:
+            from risks.services import assess_contract_risks
+
+            assess_contract_risks(ob.contract_id)
+        except Exception:  # pragma: no cover - risk must never break activation
+            pass
         return ob

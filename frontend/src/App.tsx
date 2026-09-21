@@ -15,6 +15,7 @@ import Login from './pages/Login';
 import Obligations from './pages/Obligations';
 import Overview from './pages/Overview';
 import Register from './pages/Register';
+import RiskRadar from './pages/RiskRadar';
 import SearchPage from './pages/SearchPage';
 import Settings from './pages/Settings';
 
@@ -50,7 +51,7 @@ const router = createBrowserRouter([
       { path: 'contracts/:id', element: <ContractDetail /> },
       { path: 'obligations', element: <Obligations /> },
       { path: 'deadlines', element: <Deadlines /> },
-      { path: 'risks', element: <FuturePlaceholder title="Risk Radar" /> },
+      { path: 'risks', element: <RiskRadar /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'audit', element: <AuditLog /> },
       { path: 'settings', element: <Settings /> },
