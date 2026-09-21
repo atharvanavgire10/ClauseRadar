@@ -345,6 +345,23 @@ export interface VersionDiff {
   unchanged: Array<unknown>;
 }
 
+export interface QACitation {
+  document_id: string | null;
+  document_name: string | null;
+  page_number: number | null;
+  clause_id: string | null;
+  obligation_id: string | null;
+  source_text: string;
+  contract_id?: string;
+  deadline_id?: string;
+}
+
+export interface QAResponse {
+  answer: string;
+  citations: QACitation[];
+  intent: string;
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -426,6 +443,8 @@ export const api = {
   workspaceMembers: (workspaceId: string) =>
     request<WorkspaceMember[]>(`/api/v1/workspaces/${workspaceId}/members/`),
   aiStatus: () => request<{ provider: string; configured: boolean; model: string | null; note: string }>('/api/v1/ai/status/'),
+  askQA: (input: { workspace?: string; contract?: string; question: string }) =>
+    request<QAResponse>('/api/v1/ai/ask/', { method: 'POST', body: JSON.stringify(input) }),
   unifiedSearch: (params: string) => request<SearchResponse>(`/api/v1/search/${params}`),
 
   comments: (query = '') => request<Paginated<Comment>>(`/api/v1/comments/${query}`),

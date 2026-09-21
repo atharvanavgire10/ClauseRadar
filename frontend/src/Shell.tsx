@@ -23,6 +23,7 @@ export default function Shell() {
           <NavLink to="/obligations">Obligations</NavLink>
           <NavLink to="/deadlines">Deadlines</NavLink>
           <NavLink to="/risks">Risk Radar</NavLink>
+          <NavLink to="/ask">Ask</NavLink>
           <NavLink to="/search">Search</NavLink>
           <NavLink to="/audit">Audit Log</NavLink>
           <NavLink to="/settings">Settings</NavLink>
