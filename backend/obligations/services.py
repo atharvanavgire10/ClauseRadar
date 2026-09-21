@@ -108,4 +108,10 @@ def activate_obligation(obligation_id, *, actor) -> Obligation:
             actor=actor, organization=ob.workspace.organization, workspace=ob.workspace,
             entity_type="obligation", entity_id=ob.id, action="obligation.activated", metadata={},
         )
+        try:
+            from deadlines.services import generate_recurring_for_obligation
+
+            generate_recurring_for_obligation(ob.id)
+        except Exception:  # pragma: no cover - recurrence must never break activation
+            pass
         return ob

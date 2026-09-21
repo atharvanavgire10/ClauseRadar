@@ -146,6 +146,12 @@ CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_TASK_ALWAYS_EAGER = os.environ.get("CELERY_TASK_ALWAYS_EAGER", "True").lower() in {"1", "true", "yes"}
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_TIMEZONE = "UTC"
+CELERY_BEAT_SCHEDULE = {
+    "roll-forward-recurring-deadlines-nightly": {
+        "task": "deadlines.generate_recurring",
+        "schedule": 86400.0,
+    },
+}
 
 PUBLIC_EVAL_ENABLED = os.environ.get("PUBLIC_EVAL_ENABLED", "True").lower() in {"1", "true", "yes"}
 PUBLIC_EVAL_SLUG = os.environ.get("PUBLIC_EVAL_SLUG", "eval")

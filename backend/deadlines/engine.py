@@ -6,11 +6,23 @@ in the workspace timezone (UTC by default). Business days skip Sat/Sun.
 from __future__ import annotations
 
 import re
+from calendar import monthrange
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 DUE_SOON_DAYS = 7
 DEFAULT_RENEWAL_NOTICE_DAYS = 30
+DEFAULT_RECURRING_OCCURRENCES = 6
+
+# Frequency → months per occurrence (WEEKLY/DAILY handled as day steps).
+MONTHS_PER_FREQUENCY = {
+    "MONTHLY": 1,
+    "QUARTERLY": 3,
+    "SEMI_ANNUAL": 6,
+    "ANNUAL": 12,
+}
+DAY_STEP_FREQUENCY = {"DAILY": 1, "WEEKLY": 7}
+RECURRING_FREQUENCIES = set(MONTHS_PER_FREQUENCY) | set(DAY_STEP_FREQUENCY)
 
 _MONTHS = {
     "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
@@ -111,6 +123,41 @@ def ensure_aware(value: datetime, tz: str = "UTC") -> datetime:
     if value.tzinfo is not None:
         return value
     return value.replace(tzinfo=ZoneInfo(tz))
+
+
+def add_months(day: date, months: int) -> date:
+    """Calendar-month arithmetic clamped to month end (Jan 31 + 1mo → Feb 28/29)."""
+    total = day.year * 12 + (day.month - 1) + months
+    year, month = divmod(total, 12)
+    month += 1
+    last = monthrange(year, month)[1]
+    return date(year, month, min(day.day, last))
+
+
+def occurrence_dates(frequency: str, anchor: date, *, today: date, count: int = DEFAULT_RECURRING_OCCURRENCES) -> list[date]:
+    """Next `count` occurrence dates strictly after `today`, stepping from anchor.
+
+    Deterministic: same (frequency, anchor) always yields the same series.
+    Raises ValueError for non-recurring frequencies (ONE_TIME/CONTINUOUS/CUSTOM).
+    """
+    if frequency in MONTHS_PER_FREQUENCY:
+        step = MONTHS_PER_FREQUENCY[frequency]
+        current = anchor
+        # Fast-forward past today without building unbounded lists.
+        while current <= today:
+            current = add_months(current, step)
+        out = []
+        for _ in range(count):
+            out.append(current)
+            current = add_months(current, step)
+        return out
+    if frequency in DAY_STEP_FREQUENCY:
+        step = DAY_STEP_FREQUENCY[frequency]
+        current = anchor
+        while current <= today:
+            current += timedelta(days=step)
+        return [current + timedelta(days=step * i) for i in range(count)]
+    raise ValueError(f"Frequency {frequency} is not recurring.")
 
 
 def today_in_tz(tz: str = "UTC") -> date:

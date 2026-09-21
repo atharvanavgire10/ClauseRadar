@@ -7,7 +7,15 @@ from django.db import transaction
 from django.utils import timezone
 
 from audit.services import log_event
-from .engine import DEFAULT_RENEWAL_NOTICE_DAYS, parse_explicit_date, parse_relative, renewal_notice_date
+from .engine import (
+    DEFAULT_RENEWAL_NOTICE_DAYS,
+    RECURRING_FREQUENCIES,
+    occurrence_dates,
+    parse_explicit_date,
+    parse_relative,
+    renewal_notice_date,
+    today_in_tz,
+)
 from .models import Deadline
 
 
@@ -98,6 +106,51 @@ def generate_for_workspace_contracts(workspace_id) -> int:
 
         for ob in Obligation.objects.filter(contract=contract):
             total += generate_for_obligation(ob.id)
+    return total
+
+
+def generate_recurring_for_obligation(obligation_id, *, occurrences: int = 6) -> int:
+    """Generate future RECURRING deadlines for a recurring obligation.
+
+    Idempotent: update_or_create on (obligation, due_date, kind) — retries and
+    overlapping beat runs never duplicate. Anchor: contract start date, else
+    today. ONE_TIME/CONTINUOUS/CUSTOM frequencies yield zero.
+    """
+    from obligations.models import Obligation
+
+    ob = Obligation.objects.select_related("workspace", "contract").get(pk=obligation_id)
+    if ob.frequency not in RECURRING_FREQUENCIES:
+        return 0
+    if ob.status in ("REJECTED", "COMPLETED", "WAIVED"):
+        return 0
+    anchor = ob.contract.start_date or today_in_tz()
+    dates = occurrence_dates(ob.frequency, anchor, today=today_in_tz(), count=occurrences)
+    made = 0
+    for due in dates:
+        _, created = Deadline.objects.update_or_create(
+            workspace=ob.workspace, contract=ob.contract, obligation=ob,
+            title=f"Recurring: {ob.title[:200]}", kind=Deadline.Kind.RECURRING,
+            due_date=due,
+            defaults={"anchor_date": anchor,
+                      "rule": f"{ob.frequency} occurrence from anchor {anchor}"[:500]},
+        )
+        made += created
+    if made:
+        log_event(actor=None, organization=ob.workspace.organization, workspace=ob.workspace,
+                  entity_type="obligation", entity_id=ob.id,
+                  action="obligation.recurring_generated",
+                  metadata={"deadlines": made, "frequency": ob.frequency})
+    return made
+
+
+def generate_recurring_for_workspace(workspace_id, *, occurrences: int = 6) -> int:
+    from obligations.models import Obligation
+
+    total = 0
+    for ob in Obligation.objects.filter(workspace_id=workspace_id).exclude(
+        status__in=("REJECTED", "COMPLETED", "WAIVED")
+    ):
+        total += generate_recurring_for_obligation(ob.id, occurrences=occurrences)
     return total
 
 
