@@ -24,6 +24,9 @@ class CommentSerializer(serializers.ModelSerializer):
 
 class EvidenceSerializer(serializers.ModelSerializer):
     uploaded_by_email = serializers.EmailField(source="uploaded_by.email", read_only=True, default=None)
+    # Opaque storage identifier — see DocumentSerializer. Downloads go through
+    # the permission-checked download endpoint.
+    file = serializers.SerializerMethodField()
 
     class Meta:
         model = Evidence
@@ -31,6 +34,9 @@ class EvidenceSerializer(serializers.ModelSerializer):
                   "size_bytes", "sha256", "note", "uploaded_by", "uploaded_by_email", "created_at")
         read_only_fields = ("id", "workspace", "file", "original_filename", "mime",
                             "size_bytes", "sha256", "uploaded_by", "created_at")
+
+    def get_file(self, obj):
+        return obj.file.name if obj.file else None
 
 
 class TaskSerializer(serializers.ModelSerializer):

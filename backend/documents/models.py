@@ -20,7 +20,7 @@ class Document(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey("workspaces.Workspace", on_delete=models.CASCADE, related_name="documents")
     contract = models.ForeignKey("contracts.Contract", on_delete=models.CASCADE, related_name="documents")
-    file = models.FileField(upload_to="documents/%Y/%m/")
+    file = models.FileField(upload_to="documents/%Y/%m/", max_length=500)
     original_filename = models.CharField(max_length=300)
     mime = models.CharField(max_length=120, db_index=True)
     size_bytes = models.BigIntegerField(default=0)

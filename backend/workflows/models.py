@@ -38,7 +38,7 @@ class Evidence(models.Model):
     obligation = models.ForeignKey(
         "obligations.Obligation", on_delete=models.CASCADE, related_name="evidences"
     )
-    file = models.FileField(upload_to="evidence/%Y/%m/")
+    file = models.FileField(upload_to="evidence/%Y/%m/", max_length=500)
     original_filename = models.CharField(max_length=300)
     mime = models.CharField(max_length=120)
     size_bytes = models.BigIntegerField(default=0)
