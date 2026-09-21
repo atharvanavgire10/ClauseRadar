@@ -10,6 +10,7 @@ from deadlines.views import DeadlineViewSet
 from documents.views import DocumentViewSet
 from obligations.views import ObligationViewSet
 from risks.views import RiskFindingViewSet
+from search.views import unified_search
 from workflows.views import CommentViewSet, EvidenceViewSet, TaskViewSet
 from core.views import api_info_view, health_view, ready_view
 from organizations.views import OrganizationViewSet
@@ -36,5 +37,6 @@ urlpatterns = [
     path("api/ready/", ready_view, name="ready"),
     path("api/v1/", include("core.urls")),
     path("api/v1/auth/", include("accounts.urls")),
+    path("api/v1/search/", unified_search, name="unified-search"),
     path("api/v1/", include(router.urls)),
 ]
