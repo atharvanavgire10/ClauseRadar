@@ -3,12 +3,19 @@ import { useAuth } from './auth';
 import NotificationBell from './components/NotificationBell';
 
 export default function Shell() {
-  const { user, authLoading, logout, workspaces, activeWorkspace, setActiveWorkspaceId } = useAuth();
+  const { user, authLoading, logout, workspaces, activeWorkspace, setActiveWorkspaceId, evalMode, resetEvalWorkspace } = useAuth();
   const navigate = useNavigate();
 
   async function handleLogout() {
     await logout();
     navigate('/login');
+  }
+
+  async function handleReset() {
+    if (!window.confirm('Reset the evaluation workspace to its seeded state? Your changes will be discarded.')) return;
+    await resetEvalWorkspace();
+    navigate('/');
+    window.location.reload();
   }
 
   return (
@@ -68,6 +75,14 @@ export default function Shell() {
         </div>
       </aside>
       <main className="main">
+        {evalMode && (
+          <div className="eval-banner" role="status">
+            <span>Public evaluation workspace — fictional ACME demo data, real backend.</span>
+            <button className="btn secondary btn-sm" type="button" onClick={handleReset}>
+              Reset evaluation workspace
+            </button>
+          </div>
+        )}
         <Outlet />
       </main>
     </div>

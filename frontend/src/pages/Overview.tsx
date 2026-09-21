@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 import { EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from '../components';
 
 export default function Overview() {
-  const { user, activeWorkspace } = useAuth();
+  const { user, activeWorkspace, evalMode } = useAuth();
   const wsId = activeWorkspace?.id;
 
   const contracts = useQuery({
@@ -25,8 +25,8 @@ export default function Overview() {
       <div>
         <PageHeader title="Overview" subtitle="Log in to see your workspace at a glance." />
         <div className="card">
-          <p className="muted">You are not logged in. ClauseRadar workspaces require authentication; the public evaluation workspace arrives in Phase 17.</p>
-          <div className="cta-row"><Link className="btn" to="/login">Log in</Link><Link className="btn secondary" to="/register">Register</Link></div>
+          <p className="muted">You are not logged in. Explore the public evaluation workspace with no signup, or log in to your own workspace.</p>
+          <div className="cta-row"><Link className="btn" to="/welcome">Explore ClauseRadar</Link><Link className="btn secondary" to="/login">Log in</Link></div>
         </div>
       </div>
     );
@@ -48,6 +48,22 @@ export default function Overview() {
         subtitle={activeWorkspace.description || 'Workspace overview — live data from the ClauseRadar API.'}
         actions={<Link className="btn secondary" to="/contracts">View contracts</Link>}
       />
+      {evalMode && (
+        <div className="card">
+          <h3 style={{ marginTop: 0 }}>How to evaluate ClauseRadar</h3>
+          <ol className="eval-steps">
+            <li>Open the <Link to="/contracts">Vendor Master Services Agreement</Link>.</li>
+            <li>Find a high-risk obligation in <Link to="/risks">Risk Radar</Link> and open its source clause.</li>
+            <li>Change its owner and mark it in progress.</li>
+            <li>Open the <Link to="/audit">Audit Log</Link> — every action is recorded.</li>
+            <li><Link to="/search">Search for “insurance”</Link> across contracts, clauses, and obligations.</li>
+            <li>Compare contract versions v1 → v2 on the Vendor Agreement.</li>
+            <li><Link to="/ask">Ask</Link> “What insurance obligations exist?” and open a citation.</li>
+            <li>Upload your own PDF on any contract and review its extracted obligations.</li>
+            <li>Reset the evaluation workspace from the banner above.</li>
+          </ol>
+        </div>
+      )}
       <div className="grid">
         <div className="card">
           <h3>Backend</h3>

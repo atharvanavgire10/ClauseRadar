@@ -1,6 +1,7 @@
 """Root URL configuration."""
 from django.contrib import admin
 from django.urls import include, path
+from eval.views import eval_info, eval_reset, eval_session
 from rest_framework.routers import DefaultRouter
 
 from ai.views import ai_ask, ai_classify, ai_status
@@ -42,6 +43,9 @@ urlpatterns = [
     path("api/v1/", include("core.urls")),
     path("api/v1/auth/", include("accounts.urls")),
     path("api/v1/search/", unified_search, name="unified-search"),
+    path("api/v1/eval/info/", eval_info, name="eval-info"),
+    path("api/v1/eval/session/", eval_session, name="eval-session"),
+    path("api/v1/eval/reset/", eval_reset, name="eval-reset"),
     path("api/v1/ai/status/", ai_status, name="ai-status"),
     path("api/v1/ai/classify/", ai_classify, name="ai-classify"),
     path("api/v1/ai/ask/", ai_ask, name="ai-ask"),

@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "search",
     "ai",
     "notifications",
+    "eval",
     "audit",
 ]
 
@@ -137,7 +138,12 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
-    "DEFAULT_THROTTLE_RATES": {"anon": "60/hour", "user": "2000/hour"},
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/hour",
+        "user": "2000/hour",
+        "eval_session": "30/hour",
+        "eval_reset": "10/hour",
+    },
     "EXCEPTION_HANDLER": "core.exceptions.api_exception_handler",
 }
 
@@ -164,6 +170,10 @@ CELERY_BEAT_SCHEDULE = {
 
 PUBLIC_EVAL_ENABLED = os.environ.get("PUBLIC_EVAL_ENABLED", "True").lower() in {"1", "true", "yes"}
 PUBLIC_EVAL_SLUG = os.environ.get("PUBLIC_EVAL_SLUG", "eval")
+
+# Email (console by default; configure SMTP in production)
+EMAIL_BACKEND = os.environ.get("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "ClauseRadar <noreply@clauseradar.local>")
 
 # AI — optional by design
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "none").lower()
