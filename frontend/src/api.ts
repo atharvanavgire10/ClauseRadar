@@ -231,6 +231,29 @@ export interface Deadline {
   created_at: string;
 }
 
+export interface RiskFinding {
+  id: string;
+  workspace: string;
+  contract: string;
+  contract_title: string;
+  obligation: string | null;
+  obligation_title: string | null;
+  rule: string;
+  points: number;
+  severity: string;
+  title: string;
+  explanation: string;
+  evidence: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface RiskSummary {
+  contract: string;
+  score: number;
+  level: string;
+  findings: RiskFinding[];
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -299,6 +322,10 @@ export const api = {
     }
     return body as Document;
   },
+  risks: (query = '') => request<Paginated<RiskFinding>>(`/api/v1/risks/${query}`),
+  riskSummary: (contractId: string) => request<RiskSummary>(`/api/v1/risks/summary/?contract=${contractId}`),
+  assessRisks: (contractId: string) =>
+    request<RiskSummary>('/api/v1/risks/assess/', { method: 'POST', body: JSON.stringify({ contract: contractId }) }),
   deadlines: (query = '') => request<Paginated<Deadline>>(`/api/v1/deadlines/${query}`),
   completeDeadline: (id: string) => request<Deadline>(`/api/v1/deadlines/${id}/complete/`, { method: 'POST' }),
   reopenDeadline: (id: string) => request<Deadline>(`/api/v1/deadlines/${id}/reopen/`, { method: 'POST' }),
