@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     "risks",
     "workflows",
     "search",
+    "ai",
     "audit",
 ]
 

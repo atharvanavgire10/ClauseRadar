@@ -425,6 +425,7 @@ export const api = {
     request<{ contract: string; deadlines: number }>('/api/v1/deadlines/generate/', { method: 'POST', body: JSON.stringify({ contract: contractId }) }),
   workspaceMembers: (workspaceId: string) =>
     request<WorkspaceMember[]>(`/api/v1/workspaces/${workspaceId}/members/`),
+  aiStatus: () => request<{ provider: string; configured: boolean; model: string | null; note: string }>('/api/v1/ai/status/'),
   unifiedSearch: (params: string) => request<SearchResponse>(`/api/v1/search/${params}`),
 
   comments: (query = '') => request<Paginated<Comment>>(`/api/v1/comments/${query}`),
