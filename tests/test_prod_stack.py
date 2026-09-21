@@ -52,19 +52,19 @@ def test_redis_broker_reachable(db):
         pytest.skip("no Redis broker reachable")
 
 
-@pytest.mark.django_db(transaction=True)
-def test_worker_executes_task_through_broker(db):
-    """End-to-end broker→worker→Postgres using the real risk-assess task.
+def test_worker_executes_task_through_broker():
+    """End-to-end broker→worker→backend round-trip with executor proof.
 
-    Uses committed transactions (not the default rolled-back test transaction)
-    because the worker is a SEPARATE process and can only see committed rows.
-    Skips unless a worker is actually consuming (proves the worker path instead
-    of hiding behind eager execution).
+    Uses the DB-free debug task deliberately: pytest runs in a `test_`-prefixed
+    database while an external worker uses DATABASE_URL as-is, so no
+    DB-touching task can prove cross-process execution. The returned PID must
+    differ from this process, which also catches eager mode masking as a worker.
+    Skips unless a worker is actually consuming.
     """
+    import os
+
     from celery import current_app
     from django.test import override_settings
-
-    from risks.models import RiskFinding
 
     try:
         alive = current_app.control.inspect(timeout=5).ping()
@@ -73,16 +73,9 @@ def test_worker_executes_task_through_broker(db):
     if not alive:
         pytest.skip("no celery worker running")
 
-    from obligations.models import Obligation
+    from config.celery import debug_task
 
-    from risks.tasks import assess_workspace_task
-
-    user, ws = _setup(db)
-    contract = Contract.objects.create(workspace=ws, title="Risky", created_by=user)
-    Obligation.objects.create(
-        workspace=ws, contract=contract, title="Duty", obligation_type="GENERAL",
-        source_text="The Vendor shall do the thing described here.", status="ACTIVE")
     with override_settings(CELERY_TASK_ALWAYS_EAGER=False):
-        delivered = assess_workspace_task.apply_async(args=[str(ws.id)]).get(timeout=120)
-    assert delivered >= 1
-    assert RiskFinding.objects.filter(workspace=ws).exists()
+        result = debug_task.apply_async().get(timeout=120)
+    assert result["pid"] != os.getpid(), "task executed eagerly instead of in the worker"
+    assert result["hostname"]

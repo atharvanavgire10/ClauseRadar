@@ -13,5 +13,14 @@ app.autodiscover_tasks()
 
 
 @app.task(bind=True)
-def debug_task(self):  # pragma: no cover - smoke task
+def debug_task(self):
+    """Smoke task that proves broker→worker→backend round-trips.
+
+    Returns the executor identity so tests can distinguish real worker
+    execution from eager in-process fallback (different PID).
+    """
+    import os as _os
+    import socket as _socket
+
     print(f"Request: {self.request!r}")
+    return {"hostname": _socket.gethostname(), "pid": _os.getpid()}
