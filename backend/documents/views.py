@@ -113,6 +113,13 @@ class DocumentViewSet(viewsets.ModelViewSet):
 
             process_document_task.delay(str(doc.id))
         doc.refresh_from_db()
+        try:
+            from contracts.versions import ensure_version_for_document
+
+            ensure_version_for_document(doc.id)
+            doc.refresh_from_db()
+        except Exception:  # pragma: no cover - versioning must never break upload
+            pass
         return Response(DocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
