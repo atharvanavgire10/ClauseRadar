@@ -442,3 +442,111 @@ def test_cron_disabled_without_secret(db):
     anon = APIClient()
     assert anon.post("/api/internal/cron/recurring-deadlines/",
                      HTTP_AUTHORIZATION="Bearer anything").status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Access control, eval flow, Celery intactness, vercel.json structure.
+# ---------------------------------------------------------------------------
+
+def test_blob_download_rejects_unauthorized(blob_server, db):
+    """Anonymous and cross-workspace users get 401/404 — never Blob bytes."""
+    from django.contrib.auth import get_user_model
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from rest_framework.test import APIClient
+
+    from contracts.models import Contract
+    from organizations.models import Organization, OrganizationMembership
+    from workspaces.models import Workspace, WorkspaceMembership
+
+    User = get_user_model()
+    with _blob_settings(blob_server):
+        user = User.objects.create_user(email="priv@example.com", password="password123")
+        stranger = User.objects.create_user(email="stranger@example.com", password="password123")
+        org = Organization.objects.create(name="Acme", created_by=user)
+        OrganizationMembership.objects.create(organization=org, user=user, role="OWNER")
+        ws = Workspace.objects.create(organization=org, name="Legal", created_by=user)
+        WorkspaceMembership.objects.create(workspace=ws, user=user, role="OWNER")
+        contract = Contract.objects.create(workspace=ws, title="MSA", created_by=user)
+
+        import fitz
+
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), "The Vendor shall maintain insurance at all times during the term.")
+        pdf = bytes(doc.tobytes())
+        doc.close()
+
+        client = APIClient()
+        client.force_authenticate(user=user)
+        f = SimpleUploadedFile("p.pdf", pdf, content_type="application/pdf")
+        doc_id = client.post(
+            "/api/v1/documents/", {"contract": str(contract.id), "file": f}, format="multipart").json()["id"]
+
+        anon = APIClient()
+        assert anon.get(f"/api/v1/documents/{doc_id}/download/").status_code in (401, 403)
+        other = APIClient()
+        other.force_authenticate(user=stranger)
+        assert other.get(f"/api/v1/documents/{doc_id}/download/").status_code == 404
+        assert other.get(f"/api/v1/documents/{doc_id}/").status_code == 404
+
+
+def test_public_eval_flow_in_vercel_mode(db):
+    """Eval session works with VERCEL_DEPLOYMENT on (no login, no keys, no broker)."""
+    from django.test import override_settings
+    from rest_framework.test import APIClient
+
+    from eval.seed import seed_eval_workspace
+
+    seed_eval_workspace()
+    with override_settings(CELERY_TASK_ALWAYS_EAGER=False, VERCEL_DEPLOYMENT=True):
+        anon = APIClient()
+        r = anon.post("/api/v1/eval/session/")
+        assert r.status_code == 200, r.content
+        authed = APIClient(HTTP_AUTHORIZATION=f"Token {r.json()['token']}")
+        contracts = authed.get("/api/v1/contracts/").json()
+        assert contracts["count"] == 6
+
+
+def test_celery_docker_path_intact():
+    """Celery modules import; Beat schedule unchanged; tasks registered."""
+    from config.celery import app as celery_app
+    from django.conf import settings
+
+    for dotted in ("documents.tasks", "clauses.tasks", "deadlines.tasks",
+                   "notifications.tasks", "risks.tasks"):
+        __import__(dotted)
+    tasks = {v["task"] for v in settings.CELERY_BEAT_SCHEDULE.values()}
+    assert tasks == {"deadlines.generate_recurring", "notifications.deadline_scan"}
+    registered = set(celery_app.tasks.keys())
+    assert "documents.process_document" in registered
+    assert "deadlines.generate_recurring" in registered
+    assert "notifications.deadline_scan" in registered
+    assert "risks.assess_workspace" in registered
+
+
+def test_vercel_json_structure():
+    """vercel.json is valid and wires frontend, function, rewrites, crons."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "vercel.json")) as fh:
+        config = json.load(fh)
+    assert config["outputDirectory"] == "frontend/dist"
+    assert "collectstatic" in config["buildCommand"]
+    func = config["functions"]["api/index.py"]
+    assert func["maxDuration"] == 300  # extended only for the API function
+    assert os.path.exists(os.path.join(root, "api", "index.py"))
+    sources = [r["source"] for r in config["rewrites"]]
+    assert "/api/:path*" in sources
+    assert any("index.html" in r["destination"] for r in config["rewrites"])  # SPA fallback
+    cron_paths = [c["path"] for c in config["crons"]]
+    assert "/api/internal/cron/recurring-deadlines/" in cron_paths
+    assert "/api/internal/cron/deadline-scan/" in cron_paths
+
+    # Every cron path must resolve in the Django URLconf.
+    from django.urls import resolve
+
+    for path in cron_paths:
+        assert resolve(path).func is not None
+
+    # Root dependency files the Vercel build needs must exist.
+    assert os.path.exists(os.path.join(root, "requirements.txt"))
+    assert os.path.exists(os.path.join(root, ".python-version"))
