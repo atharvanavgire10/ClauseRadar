@@ -62,11 +62,10 @@ def assess_obligation(ob, *, today=None) -> list[dict]:
                          "source_text": (ob.source_text or "")[:500], "page_number": ob.page_number},
         })
 
-    # NOTE: Phase 10 adds an Evidence attachment model; until then "missing
-    # evidence" means required evidence is declared but the obligation is still
-    # open with nothing recorded. The rule keys off evidence_required so seed
-    # and extracted data behave identically before/after Phase 10.
-    if ob.evidence_required and active:
+    # Evidence attachments (Phase 10) satisfy the requirement; otherwise an open
+    # obligation with declared evidence_required is missing it.
+    has_evidence = ob.evidences.count() if hasattr(ob, "evidences") else 0
+    if ob.evidence_required and active and not has_evidence:
         findings.append({
             "rule": "evidence_missing", "points": w["evidence_missing"], "severity": "MEDIUM",
             "title": f"Missing evidence: {ob.evidence_required}",
@@ -123,7 +122,7 @@ def assess_contract(contract, *, today=None) -> tuple[int, list[dict]]:
     today = today or _today()
     w = weights()
     findings: list[dict] = []
-    for ob in contract.obligations.select_related("clause").prefetch_related("deadlines").all():
+    for ob in contract.obligations.select_related("clause").prefetch_related("deadlines", "evidences").all():
         findings.extend(assess_obligation(ob, today=today))
 
     if contract.renewal_date and contract.status not in ("TERMINATED", "ARCHIVED", "EXPIRED"):

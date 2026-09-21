@@ -203,6 +203,8 @@ export interface Obligation {
   extraction_method: string;
   owner: string | null;
   owner_email: string | null;
+  priority: string;
+  notes: string;
   reviewer: string | null;
   reviewer_email: string | null;
   reviewed_at: string | null;
@@ -252,6 +254,51 @@ export interface RiskSummary {
   score: number;
   level: string;
   findings: RiskFinding[];
+}
+
+export interface WorkspaceMember {
+  id: string;
+  user: string;
+  user_email: string;
+  role: string;
+  created_at: string;
+}
+
+export interface Comment {
+  id: string;
+  workspace: string;
+  contract: string | null;
+  obligation: string | null;
+  author: string | null;
+  author_email: string | null;
+  body: string;
+  created_at: string;
+}
+
+export interface EvidenceItem {
+  id: string;
+  workspace: string;
+  obligation: string;
+  file: string;
+  original_filename: string;
+  mime: string;
+  size_bytes: number;
+  note: string;
+  uploaded_by_email: string | null;
+  created_at: string;
+}
+
+export interface TaskItem {
+  id: string;
+  workspace: string;
+  contract: string | null;
+  obligation: string | null;
+  title: string;
+  status: string;
+  assignee: string | null;
+  assignee_email: string | null;
+  due_date: string | null;
+  created_at: string;
 }
 
 export const api = {
@@ -332,6 +379,49 @@ export const api = {
   waiveDeadline: (id: string) => request<Deadline>(`/api/v1/deadlines/${id}/waive/`, { method: 'POST' }),
   generateDeadlines: (contractId: string) =>
     request<{ contract: string; deadlines: number }>('/api/v1/deadlines/generate/', { method: 'POST', body: JSON.stringify({ contract: contractId }) }),
+  workspaceMembers: (workspaceId: string) =>
+    request<WorkspaceMember[]>(`/api/v1/workspaces/${workspaceId}/members/`),
+
+  comments: (query = '') => request<Paginated<Comment>>(`/api/v1/comments/${query}`),
+  createComment: (input: { obligation?: string; contract?: string; body: string }) =>
+    request<Comment>('/api/v1/comments/', { method: 'POST', body: JSON.stringify(input) }),
+
+  evidenceList: (query = '') => request<Paginated<EvidenceItem>>(`/api/v1/evidence/${query}`),
+  uploadEvidence: async (obligationId: string, file: File, note?: string): Promise<EvidenceItem> => {
+    const token = getToken();
+    const form = new FormData();
+    form.append('obligation', obligationId);
+    form.append('file', file, file.name);
+    if (note) form.append('note', note);
+    const res = await fetch(`${API_BASE}/api/v1/evidence/`, {
+      method: 'POST', credentials: 'include',
+      headers: token ? { Authorization: `Token ${token}` } : {}, body: form,
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) throw new Error((body as { detail?: string })?.detail ?? `Upload failed (${res.status})`);
+    return body as EvidenceItem;
+  },
+  deleteEvidence: async (id: string): Promise<void> => {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/v1/evidence/${id}/`, {
+      method: 'DELETE', credentials: 'include', headers: token ? { Authorization: `Token ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+  },
+
+  tasks: (query = '') => request<Paginated<TaskItem>>(`/api/v1/tasks/${query}`),
+  createTask: (input: { contract?: string; obligation?: string; title: string; assignee?: string; due_date?: string }) =>
+    request<TaskItem>('/api/v1/tasks/', { method: 'POST', body: JSON.stringify(input) }),
+  updateTask: (id: string, input: Partial<TaskItem>) =>
+    request<TaskItem>(`/api/v1/tasks/${id}/`, { method: 'PATCH', body: JSON.stringify(input) }),
+
+  startObligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/start/`, { method: 'POST' }),
+  completeObligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/complete/`, { method: 'POST' }),
+  reopenObligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/reopen/`, { method: 'POST' }),
+  waiveObligation: (id: string, reason?: string) =>
+    request<Obligation>(`/api/v1/obligations/${id}/waive/`, { method: 'POST', body: JSON.stringify({ reason: reason ?? '' }) }),
+  assignObligation: (id: string, email: string) =>
+    request<Obligation>(`/api/v1/obligations/${id}/assign/`, { method: 'POST', body: JSON.stringify({ email }) }),
   obligations: (query = '') => request<Paginated<Obligation>>(`/api/v1/obligations/${query}`),
   obligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/`),
   updateObligation: (id: string, input: Partial<Obligation>) =>

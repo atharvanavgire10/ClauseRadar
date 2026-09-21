@@ -10,13 +10,22 @@ from audit.services import log_event
 from core.permissions import user_can_access_workspace, user_can_write_workspace
 from .models import Obligation
 from .serializers import ObligationSerializer
-from .services import activate_obligation, confirm_obligation, reject_obligation
+from .services import (
+    activate_obligation,
+    assign_owner,
+    complete_obligation,
+    confirm_obligation,
+    reject_obligation,
+    reopen_obligation,
+    start_progress,
+    waive_obligation,
+)
 
 
 class ObligationViewSet(viewsets.ModelViewSet):
     serializer_class = ObligationSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["workspace", "contract", "document", "obligation_type", "status", "frequency", "owner"]
+    filterset_fields = ["workspace", "contract", "document", "obligation_type", "status", "frequency", "owner", "priority"]
     search_fields = ["title", "actor", "action", "requirement", "source_text"]
     ordering_fields = ["created_at", "updated_at", "confidence"]
     http_method_names = ["get", "post", "patch", "delete", "head", "options"]
@@ -112,6 +121,66 @@ class ObligationViewSet(viewsets.ModelViewSet):
             ob = activate_obligation(ob.id, actor=request.user)
         except ValueError as exc:
             return Response({"detail": str(exc), "code": "invalid_transition"}, status=400)
+        return Response(ObligationSerializer(ob).data)
+
+    @action(detail=True, methods=["post"])
+    def start(self, request, pk=None):
+        ob = self._checked(pk)
+        try:
+            ob = start_progress(ob.id, actor=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc), "code": "invalid_transition"}, status=400)
+        return Response(ObligationSerializer(ob).data)
+
+    @action(detail=True, methods=["post"])
+    def complete(self, request, pk=None):
+        ob = self._checked(pk)
+        try:
+            ob = complete_obligation(ob.id, actor=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc), "code": "invalid_transition"}, status=400)
+        return Response(ObligationSerializer(ob).data)
+
+    @action(detail=True, methods=["post"])
+    def reopen(self, request, pk=None):
+        ob = self._checked(pk)
+        try:
+            ob = reopen_obligation(ob.id, actor=request.user)
+        except ValueError as exc:
+            return Response({"detail": str(exc), "code": "invalid_transition"}, status=400)
+        return Response(ObligationSerializer(ob).data)
+
+    @action(detail=True, methods=["post"])
+    def waive(self, request, pk=None):
+        ob = self._checked(pk)
+        try:
+            ob = waive_obligation(ob.id, actor=request.user, reason=request.data.get("reason", ""))
+        except ValueError as exc:
+            return Response({"detail": str(exc), "code": "invalid_transition"}, status=400)
+        return Response(ObligationSerializer(ob).data)
+
+    @action(detail=True, methods=["post"], url_path="assign")
+    def assign(self, request, pk=None):
+        from django.contrib.auth import get_user_model
+
+        from workspaces.models import WorkspaceMembership
+
+        ob = self._checked(pk)
+        email = (request.data.get("email") or "").strip().lower()
+        if not email:
+            try:
+                ob = assign_owner(ob.id, actor=request.user, owner=None)
+            except ValueError as exc:
+                return Response({"detail": str(exc), "code": "invalid_transition"}, status=400)
+            return Response(ObligationSerializer(ob).data)
+        User = get_user_model()
+        try:
+            target = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "User not found.", "code": "not_found"}, status=404)
+        if not WorkspaceMembership.objects.filter(workspace=ob.workspace, user=target).exists():
+            return Response({"detail": "User is not a member of this workspace.", "code": "not_member"}, status=400)
+        ob = assign_owner(ob.id, actor=request.user, owner=target)
         return Response(ObligationSerializer(ob).data)
 
     @action(detail=False, methods=["post"], url_path="extract")

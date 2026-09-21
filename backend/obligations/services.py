@@ -121,3 +121,57 @@ def activate_obligation(obligation_id, *, actor) -> Obligation:
         except Exception:  # pragma: no cover - risk must never break activation
             pass
         return ob
+
+
+def _transition(obligation_id, *, actor, from_statuses: tuple, to_status: str,
+                action: str, extra: dict | None = None) -> Obligation:
+    with transaction.atomic():
+        ob = Obligation.objects.select_for_update().get(pk=obligation_id)
+        if ob.status not in from_statuses:
+            raise ValueError(f"Cannot move {ob.status} → {to_status}.")
+        ob.status = to_status
+        ob.save(update_fields=["status", "updated_at"])
+        log_event(
+            actor=actor, organization=ob.workspace.organization, workspace=ob.workspace,
+            entity_type="obligation", entity_id=ob.id, action=action,
+            metadata={"title": ob.title, **(extra or {})},
+        )
+        return ob
+
+
+def start_progress(obligation_id, *, actor) -> Obligation:
+    return _transition(obligation_id, actor=actor, from_statuses=("ACTIVE",), to_status="IN_PROGRESS",
+                       action="obligation.started")
+
+
+def complete_obligation(obligation_id, *, actor) -> Obligation:
+    return _transition(obligation_id, actor=actor, from_statuses=("ACTIVE", "IN_PROGRESS"),
+                       to_status="COMPLETED", action="obligation.completed")
+
+
+def reopen_obligation(obligation_id, *, actor) -> Obligation:
+    return _transition(obligation_id, actor=actor, from_statuses=("COMPLETED", "WAIVED"),
+                       to_status="ACTIVE", action="obligation.reopened")
+
+
+def waive_obligation(obligation_id, *, actor, reason: str = "") -> Obligation:
+    return _transition(obligation_id, actor=actor,
+                       from_statuses=("NEEDS_REVIEW", "CONFIRMED", "ACTIVE", "IN_PROGRESS"),
+                       to_status="WAIVED", action="obligation.waived",
+                       extra={"reason": reason[:500]})
+
+
+def assign_owner(obligation_id, *, actor, owner) -> Obligation:
+    """Assign (or unassign with owner=None). Owner should belong to the workspace;
+    enforced at the API layer where membership is visible."""
+    with transaction.atomic():
+        ob = Obligation.objects.select_for_update().get(pk=obligation_id)
+        previous = str(ob.owner_id)
+        ob.owner = owner
+        ob.save(update_fields=["owner", "updated_at"])
+        log_event(
+            actor=actor, organization=ob.workspace.organization, workspace=ob.workspace,
+            entity_type="obligation", entity_id=ob.id, action="obligation.owner_changed",
+            metadata={"previous": previous, "owner": str(getattr(owner, "id", None))},
+        )
+        return ob

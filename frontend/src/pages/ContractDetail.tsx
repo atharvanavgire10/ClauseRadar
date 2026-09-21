@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from '../com
 import ClausesSection from '../components/ClausesSection';
 import DocumentsSection from '../components/DocumentsSection';
 import ObligationsSection from '../components/ObligationsSection';
+import { TasksSection } from '../components/OperationsPanel';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'ARCHIVED'];
 
@@ -91,6 +92,7 @@ export default function ContractDetail() {
         document.querySelector('section[aria-label="Documents"]')?.scrollIntoView({ behavior: 'smooth' });
       }} />
       <ObligationsSection contractId={c.id} />
+      <TasksSection contractId={c.id} />
       <h2>Related audit</h2>
       {relatedAudit.isPending && <Loading label="Loading related audit…" />}
       {relatedAudit.isError && <p className="muted">Unable to load related audit.</p>}

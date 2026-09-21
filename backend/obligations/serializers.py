@@ -14,7 +14,8 @@ class ObligationSerializer(serializers.ModelSerializer):
             "id", "workspace", "contract", "contract_title", "document", "clause",
             "page_number", "source_text", "title", "obligation_type", "actor", "action",
             "requirement", "frequency", "evidence_required", "status", "confidence",
-            "extraction_method", "owner", "owner_email", "reviewer", "reviewer_email",
+            "extraction_method", "owner", "owner_email", "priority", "notes",
+            "reviewer", "reviewer_email",
             "reviewed_at", "created_at", "updated_at",
         )
         read_only_fields = (
