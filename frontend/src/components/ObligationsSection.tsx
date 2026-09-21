@@ -5,6 +5,7 @@ import { api, buildQuery, getErrorMessage } from '../api';
 import type { AuditEvent, Obligation } from '../api';
 import { splitHighlight } from '../highlight';
 import { EmptyState, ErrorState, Loading, StatusBadge } from '../components';
+import { CommentsThread, EvidencePanel } from './OperationsPanel';
 
 export function ObligationCard({ ob, onChanged }: { ob: Obligation; onChanged: () => void }) {
   const queryClient = useQueryClient();
@@ -13,7 +14,14 @@ export function ObligationCard({ ob, onChanged }: { ob: Obligation; onChanged: (
   const [showHistory, setShowHistory] = useState(false);
   const [title, setTitle] = useState(ob.title);
   const [actor, setActor] = useState(ob.actor);
+  const [priority, setPriority] = useState(ob.priority ?? 'MEDIUM');
+  const [notes, setNotes] = useState(ob.notes ?? '');
   const [note, setNote] = useState<string | null>(null);
+
+  const members = useQuery({
+    queryKey: ['members', ob.workspace],
+    queryFn: () => api.workspaceMembers(ob.workspace),
+  });
 
   const history = useQuery({
     queryKey: ['audit', 'obligation', ob.id],
@@ -70,6 +78,35 @@ export function ObligationCard({ ob, onChanged }: { ob: Obligation; onChanged: (
         <strong>Action:</strong> {ob.action || '—'} · <strong>Frequency:</strong> {ob.frequency}
         {ob.evidence_required && <span> · <strong>Evidence:</strong> {ob.evidence_required}</span>}
       </p>
+      <p className="muted" style={{ fontSize: 13, margin: '4px 0' }}>
+        <strong>Owner:</strong> {ob.owner_email ?? 'unassigned'} · <strong>Priority:</strong> {ob.priority ?? 'MEDIUM'}
+        {ob.notes && <span> · <strong>Notes:</strong> {ob.notes}</span>}
+      </p>
+      <div className="toolbar" style={{ marginBottom: 4 }}>
+        <select aria-label="Assign owner" value={ob.owner ?? ''} disabled={busy}
+          onChange={(e) => run(() => api.assignObligation(ob.id, members.data?.find((m) => m.user === e.target.value)?.user_email ?? ''), 'Owner updated.')}>
+          <option value="">Unassigned</option>
+          {members.data?.map((m) => <option key={m.user} value={m.user}>{m.user_email} ({m.role})</option>)}
+        </select>
+        <select aria-label="Priority" value={priority} disabled={busy}
+          onChange={(e) => { setPriority(e.target.value); run(() => api.updateObligation(ob.id, { priority: e.target.value }), 'Priority updated.'); }}>
+          {['LOW','MEDIUM','HIGH','URGENT'].map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
+      <details>
+        <summary>Notes</summary>
+        <form className="form" style={{ marginTop: 8 }} onSubmit={(e) => { e.preventDefault(); run(() => api.updateObligation(ob.id, { notes }), 'Notes saved.'); }}>
+          <label className="field"><span>Reviewer notes</span><textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></label>
+          <button className="btn secondary btn-sm" type="submit" disabled={busy}>Save notes</button>
+        </form>
+      </details>
+      <details>
+        <summary>Comments &amp; evidence</summary>
+        <h5>Comments</h5>
+        <CommentsThread obligationId={ob.id} />
+        <h5>Evidence</h5>
+        <EvidencePanel obligationId={ob.id} />
+      </details>
       <details>
         <summary>Source evidence (p{ob.page_number}, {Math.round(ob.confidence * 100)}% via {ob.extraction_method})</summary>
         <blockquote className="evidence">
@@ -101,6 +138,24 @@ export function ObligationCard({ ob, onChanged }: { ob: Obligation; onChanged: (
       {ob.status === 'CONFIRMED' && (
         <div className="row-actions" style={{ marginTop: 8 }}>
           <button className="btn secondary btn-sm" type="button" disabled={busy} onClick={() => run(() => api.activateObligation(ob.id), 'Activated.')}>Activate</button>
+        </div>
+      )}
+      {ob.status === 'ACTIVE' && (
+        <div className="row-actions" style={{ marginTop: 8 }}>
+          <button className="btn secondary btn-sm" type="button" disabled={busy} onClick={() => run(() => api.startObligation(ob.id), 'In progress.')}>Start progress</button>
+          <button className="btn secondary btn-sm" type="button" disabled={busy} onClick={() => run(() => api.completeObligation(ob.id), 'Completed.')}>Complete</button>
+          <button className="btn secondary btn-sm" type="button" disabled={busy} onClick={() => { const r = window.prompt('Waiver reason:', ''); if (r !== null) run(() => api.waiveObligation(ob.id, r), 'Waived.'); }}>Waive</button>
+        </div>
+      )}
+      {ob.status === 'IN_PROGRESS' && (
+        <div className="row-actions" style={{ marginTop: 8 }}>
+          <button className="btn secondary btn-sm" type="button" disabled={busy} onClick={() => run(() => api.completeObligation(ob.id), 'Completed.')}>Complete</button>
+          <button className="btn secondary btn-sm" type="button" disabled={busy} onClick={() => { const r = window.prompt('Waiver reason:', ''); if (r !== null) run(() => api.waiveObligation(ob.id, r), 'Waived.'); }}>Waive</button>
+        </div>
+      )}
+      {(ob.status === 'COMPLETED' || ob.status === 'WAIVED') && (
+        <div className="row-actions" style={{ marginTop: 8 }}>
+          <button className="btn secondary btn-sm" type="button" disabled={busy} onClick={() => run(() => api.reopenObligation(ob.id), 'Reopened.')}>Reopen</button>
         </div>
       )}
       {note && <p className="muted" role="status" style={{ fontSize: 13 }}>{note}</p>}

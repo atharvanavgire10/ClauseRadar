@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "obligations",
     "deadlines",
     "risks",
+    "workflows",
     "audit",
 ]
 

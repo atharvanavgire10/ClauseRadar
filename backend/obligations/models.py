@@ -51,6 +51,12 @@ class Obligation(models.Model):
         LLM = "LLM", "LLM"
         HYBRID = "HYBRID", "Hybrid"
 
+    class Priority(models.TextChoices):
+        LOW = "LOW", "Low"
+        MEDIUM = "MEDIUM", "Medium"
+        HIGH = "HIGH", "High"
+        URGENT = "URGENT", "Urgent"
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey("workspaces.Workspace", on_delete=models.CASCADE, related_name="obligations")
     contract = models.ForeignKey("contracts.Contract", on_delete=models.CASCADE, related_name="obligations")
@@ -75,6 +81,8 @@ class Obligation(models.Model):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="owned_obligations"
     )
+    priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM, db_index=True)
+    notes = models.TextField(blank=True)
     reviewer = models.ForeignKey(
         settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="reviewed_obligations"
     )
