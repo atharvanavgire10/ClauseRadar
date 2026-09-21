@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+ENV/
+.env
+!.env.example
+*.egg-info/
+dist/
+build/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+/backend/staticfiles/
+/backend/media/
+!**/.gitkeep
+
+# Pytest / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+*.cover
+
+# Node / frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+/frontend/dist/
+
+# Vite
+vite.config.ts.timestamp-*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Secrets / uploads
+*.pem
+*.key
+backend/media/documents/*
+!backend/media/documents/.gitkeep
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Misc
+*.tmp
+*.bak
