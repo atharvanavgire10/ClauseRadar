@@ -1,7 +1,12 @@
 // Central typed API client. Token persisted in localStorage; session cookie also sent.
+// VITE_API_URL values: absolute origin (https://api.example.com), the literal
+// "same-origin" (relative /api/... — for same-origin deployments like Vercel),
+// or unset (local dev default http://localhost:8000). The value is baked in at
+// build time; production builds are guarded by scripts/verify-api-url.js.
+const _RAW_API_URL =
+  (import.meta as unknown as { env: Record<string, string | undefined> }).env.VITE_API_URL;
 export const API_BASE: string =
-  (import.meta as unknown as { env: Record<string, string | undefined> }).env.VITE_API_URL ??
-  'http://localhost:8000';
+  _RAW_API_URL === undefined ? 'http://localhost:8000' : _RAW_API_URL === 'same-origin' ? '' : _RAW_API_URL;
 
 const TOKEN_KEY = 'clauseradar.token';
 

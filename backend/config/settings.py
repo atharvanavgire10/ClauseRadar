@@ -88,6 +88,8 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 _database_url = os.environ.get("DATABASE_URL", "sqlite:///db.sqlite3")
+if not DEBUG and not os.environ.get("DATABASE_URL"):
+    raise RuntimeError("DATABASE_URL is required when DEBUG=False (refusing silent SQLite fallback).")
 if _database_url.startswith("sqlite"):
     DATABASES = {
         "default": {
@@ -109,8 +111,20 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Deployment target switches (Vercel-native vs Docker/local). Defined before
+# STORAGES because the default backend selection reads them.
+VERCEL_DEPLOYMENT = os.environ.get("VERCEL_DEPLOYMENT", "False").lower() in {"1", "true", "yes"}
+DOCUMENT_STORAGE_BACKEND = os.environ.get("DOCUMENT_STORAGE_BACKEND", "local").lower()
+
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    # Local filesystem by default; select "vercel_blob" via
+    # DOCUMENT_STORAGE_BACKEND for the Vercel deployment.
+    "default": (
+        {"BACKEND": "documents.storages.BlobStorage"}
+        if DOCUMENT_STORAGE_BACKEND == "vercel_blob"
+        else {"BACKEND": "django.core.files.storage.FileSystemStorage"}
+    ),
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
@@ -154,6 +168,20 @@ REST_FRAMEWORK = {
 FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", FRONTEND_URL).split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
+# Session-cookie SPA logins need the browser origin trusted for CSRF
+# (same list as CORS; entries must include the scheme).
+CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
+
+# Deployment target switches (Vercel-native vs Docker/local).
+# (Defined above, next to MEDIA settings, because STORAGES needs them.)
+# Vercel Blob (only used when DOCUMENT_STORAGE_BACKEND=vercel_blob).
+BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
+BLOB_API_BASE_URL = os.environ.get("BLOB_API_BASE_URL", "https://blob.vercel-storage.com")
+BLOB_API_VERSION = os.environ.get("BLOB_API_VERSION", "10")
+BLOB_PRIVATE = os.environ.get("BLOB_PRIVATE", "True").lower() in {"1", "true", "yes"}
+
+# Internal cron protection (Vercel Cron sends Authorization: Bearer <CRON_SECRET>).
+CRON_SECRET = os.environ.get("CRON_SECRET", "")
 
 # Production hardening — only when DEBUG=False (env-gated, safe defaults).
 if not DEBUG:

@@ -1,0 +1,2 @@
+# Root requirements for the Vercel Python runtime (single include, no duplication).
+-r backend/requirements.txt

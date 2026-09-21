@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "installCommand": "npm --prefix frontend ci",
+  "buildCommand": "npm run build --prefix frontend && python backend/manage.py collectstatic --noinput",
+  "outputDirectory": "frontend/dist",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 300,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api/index.py" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/internal/cron/recurring-deadlines/", "schedule": "0 2 * * *" },
+    { "path": "/api/internal/cron/deadline-scan/", "schedule": "30 2 * * *" }
+  ]
+}
