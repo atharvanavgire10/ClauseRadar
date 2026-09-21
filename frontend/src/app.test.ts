@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildQuery, getErrorMessage } from './api';
+import { splitHighlight } from './highlight';
 import { validateContractTitle, validateDateOrder, validateEmail, validatePassword } from './validation';
 
 describe('buildQuery', () => {
@@ -30,5 +31,20 @@ describe('validation', () => {
     expect(validateContractTitle('Vendor Agreement')).toBeNull();
     expect(validateDateOrder('2026-05-01', '2026-04-01')).not.toBeNull();
     expect(validateDateOrder('2026-04-01', '2026-05-01')).toBeNull();
+  });
+});
+
+describe('splitHighlight', () => {
+  const source = 'The Vendor shall maintain valid cyber insurance throughout the term.';
+  it('splits around the matched action text', () => {
+    const [before, hit, after] = splitHighlight(source, 'shall maintain valid cyber insurance');
+    expect(before).toBe('The Vendor ');
+    expect(hit).toBe('shall maintain valid cyber insurance');
+    expect(after).toContain('throughout the term.');
+  });
+
+  it('returns full text when there is no usable match', () => {
+    expect(splitHighlight(source, '')).toEqual([source, '', '']);
+    expect(splitHighlight(source, 'xyz')).toEqual([source, '', '']);
   });
 });

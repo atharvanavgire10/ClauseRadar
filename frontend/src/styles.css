@@ -97,6 +97,9 @@ tr:last-child td { border-bottom: 0; }
 .evidence { border-left: 3px solid var(--accent); margin: 8px 0; padding: 8px 12px; background: #0d1528; border-radius: 0 8px 8px 0; font-size: 13px; white-space: pre-wrap; }
 details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 blockquote { margin-left: 0; }
+mark { background: #3d2f10; color: #ffd88a; border-radius: 3px; padding: 0 2px; }
+.history { font-size: 13px; padding-left: 18px; }
+.history li { margin-bottom: 4px; }
 
 .dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
 .dl dt { color: var(--muted); }

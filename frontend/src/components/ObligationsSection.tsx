@@ -2,16 +2,25 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, buildQuery, getErrorMessage } from '../api';
-import type { Obligation } from '../api';
+import type { AuditEvent, Obligation } from '../api';
+import { splitHighlight } from '../highlight';
 import { EmptyState, ErrorState, Loading, StatusBadge } from '../components';
 
 export function ObligationCard({ ob, onChanged }: { ob: Obligation; onChanged: () => void }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [title, setTitle] = useState(ob.title);
   const [actor, setActor] = useState(ob.actor);
   const [note, setNote] = useState<string | null>(null);
+
+  const history = useQuery({
+    queryKey: ['audit', 'obligation', ob.id],
+    queryFn: () => api.audit(buildQuery({ entity_type: 'obligation', entity_id: ob.id, page_size: 50 })),
+    enabled: showHistory,
+  });
+  const [before, hit, after] = splitHighlight(ob.source_text, ob.action);
 
   async function run(fn: () => Promise<Obligation>, okMsg: string) {
     setBusy(true);
@@ -63,8 +72,24 @@ export function ObligationCard({ ob, onChanged }: { ob: Obligation; onChanged: (
       </p>
       <details>
         <summary>Source evidence (p{ob.page_number}, {Math.round(ob.confidence * 100)}% via {ob.extraction_method})</summary>
-        <blockquote className="evidence">{ob.source_text}</blockquote>
+        <blockquote className="evidence">
+          {hit ? <>{before}<mark>{hit}</mark>{after}</> : ob.source_text}
+        </blockquote>
         {ob.reviewer_email && <p className="muted" style={{ fontSize: 12 }}>Reviewed by {ob.reviewer_email} at {ob.reviewed_at ? new Date(ob.reviewed_at).toLocaleString() : '—'}</p>}
+      </details>
+      <details onToggle={(e) => setShowHistory((e.target as HTMLDetailsElement).open)}>
+        <summary>Extraction &amp; review history</summary>
+        {!showHistory && <p className="muted" style={{ fontSize: 13 }}>Open to load the audit trail for this obligation.</p>}
+        {history.isPending && showHistory && <p className="muted">Loading history…</p>}
+        {history.isError && <p className="form-error">{getErrorMessage(history.error)}</p>}
+        {history.data && history.data.results.length === 0 && <p className="muted">No history events.</p>}
+        {history.data && history.data.results.length > 0 && (
+          <ul className="history">
+            {history.data.results.map((e: AuditEvent) => (
+              <li key={e.id}><code>{e.action}</code> <span className="muted">{e.actor_email ?? 'system'} · {new Date(e.created_at).toLocaleString()}</span></li>
+            ))}
+          </ul>
+        )}
       </details>
       {ob.status === 'NEEDS_REVIEW' && !editing && (
         <div className="row-actions" style={{ marginTop: 8 }}>
