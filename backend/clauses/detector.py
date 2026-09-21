@@ -55,6 +55,37 @@ def looks_like_heading(line: str) -> bool:
     return bool(HEADING_RE.match(line))
 
 
+SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Z0-9\"'])")
+LONG_SEGMENT_CHARS = 400
+MAX_SENTENCES_PER_CLAUSE = 2
+
+
+def _chunk_long_segment(heading: str, body: str, start: int) -> list[tuple[str, str, int, int]]:
+    """Split an over-long block into 1–2 sentence clauses with approximate offsets.
+
+    Whole-page blobs make poor evidence units; short segments are untouched.
+    """
+    if len(body) <= LONG_SEGMENT_CHARS:
+        return [(heading, body, start, start + len(body))]
+    sentences = [s.strip() for s in SENTENCE_SPLIT_RE.split(body) if s and s.strip()]
+    sentences = [s for s in sentences if len(s) >= 20]
+    if len(sentences) <= 1:
+        return [(heading, body, start, start + len(body))]
+    chunks: list[tuple[str, str, int, int]] = []
+    cursor = start
+    for i in range(0, len(sentences), MAX_SENTENCES_PER_CLAUSE):
+        group = sentences[i:i + MAX_SENTENCES_PER_CLAUSE]
+        text = " ".join(group)
+        if len(text) < 40:
+            continue
+        at = body.find(group[0][:30], cursor - start if cursor > start else 0)
+        cstart = start + at if at >= 0 else cursor
+        cend = cstart + len(text)
+        chunks.append((heading if i == 0 else "", text, cstart, cend))
+        cursor = cend
+    return chunks or [(heading, body, start, start + len(body))]
+
+
 def segment_page(page_text: str) -> list[tuple[str, str, int, int]]:
     """Split page text into (heading, text, start_offset, end_offset) candidates.
 
@@ -100,7 +131,7 @@ def segment_page(page_text: str) -> list[tuple[str, str, int, int]]:
             start = first_start
             end = start + len(body)
             pending_short = []
-        segments.append((heading, body, start, end))
+        segments.extend(_chunk_long_segment(heading, body, start))
     if pending_short:
         body = " ".join(t for t, _ in pending_short)
         if len(body) >= 20:

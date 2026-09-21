@@ -5,12 +5,16 @@ import { api, getToken, setToken } from './api';
 import type { User, Workspace } from './api';
 
 const WORKSPACE_KEY = 'clauseradar.workspace';
+const EVAL_KEY = 'clauseradar.eval';
 
 interface AuthState {
   user: User | null;
   authLoading: boolean;
+  evalMode: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, displayName?: string) => Promise<void>;
+  explore: () => Promise<void>;
+  resetEvalWorkspace: () => Promise<string>;
   logout: () => Promise<void>;
   workspaces: Workspace[];
   workspacesLoading: boolean;
@@ -36,6 +40,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [workspacesLoading, setWorkspacesLoading] = useState(false);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(storedWorkspaceId());
+  const [evalMode, setEvalMode] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(EVAL_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const refreshWorkspaces = useCallback(async () => {
     if (!getToken()) {
@@ -88,6 +99,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.login({ email: email.trim().toLowerCase(), password });
       setToken(res.token);
       setUser(res.user);
+      setEvalMode(false);
+      try {
+        localStorage.removeItem(EVAL_KEY);
+      } catch {
+        /* ignore */
+      }
       await refreshWorkspaces();
     },
     [refreshWorkspaces],
@@ -98,6 +115,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await api.register({ email: email.trim().toLowerCase(), password, display_name: displayName });
       setToken(res.token);
       setUser(res.user);
+      setEvalMode(false);
+      try {
+        localStorage.removeItem(EVAL_KEY);
+      } catch {
+        /* ignore */
+      }
       await refreshWorkspaces();
     },
     [refreshWorkspaces],
@@ -113,13 +136,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setWorkspaces([]);
     setActiveWorkspaceId(null);
+    setEvalMode(false);
     try {
       localStorage.removeItem(WORKSPACE_KEY);
+      localStorage.removeItem(EVAL_KEY);
     } catch {
       /* ignore */
     }
     queryClient.clear();
   }, [queryClient]);
+
+  const explore = useCallback(async () => {
+    setToken(null);
+    const res = await api.evalSession();
+    setToken(res.token);
+    setUser(res.user);
+    setEvalMode(true);
+    try {
+      localStorage.setItem(EVAL_KEY, '1');
+    } catch {
+      /* ignore */
+    }
+    await refreshWorkspaces();
+  }, [refreshWorkspaces]);
+
+  const resetEvalWorkspace = useCallback(async () => {
+    const res = await api.resetEval();
+    await refreshWorkspaces();
+    queryClient.clear();
+    return `Evaluation workspace reset — ${res.contracts ?? 6} contracts reseeded.`;
+  }, [refreshWorkspaces, queryClient]);
 
   const setActiveWorkspaceIdAndPersist = useCallback((id: string | null) => {
     setActiveWorkspaceId(id);
@@ -140,8 +186,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       authLoading,
+      evalMode,
       login,
       register,
+      explore,
+      resetEvalWorkspace,
       logout,
       workspaces,
       workspacesLoading,
@@ -149,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setActiveWorkspaceId: setActiveWorkspaceIdAndPersist,
       refreshWorkspaces,
     }),
-    [user, authLoading, login, register, logout, workspaces, workspacesLoading, activeWorkspace, setActiveWorkspaceIdAndPersist, refreshWorkspaces],
+    [user, authLoading, evalMode, login, register, explore, resetEvalWorkspace, logout, workspaces, workspacesLoading, activeWorkspace, setActiveWorkspaceIdAndPersist, refreshWorkspaces],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

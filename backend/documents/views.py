@@ -60,6 +60,16 @@ class DocumentViewSet(viewsets.ModelViewSet):
             return Response({"detail": "file is required.", "code": "validation_error"}, status=400)
         contract, workspace = self._contract_for_upload(contract_id)
 
+        if workspace.workspace_type == "PUBLIC_EVAL":
+            from .models import Document as _Doc
+
+            if _Doc.objects.filter(workspace=workspace).count() >= 30:
+                return Response(
+                    {"detail": "Evaluation workspace upload limit reached (30). Reset to start over.",
+                     "code": "eval_limit"},
+                    status=429,
+                )
+
         if upload.size and upload.size > max_upload_bytes():
             return Response(
                 {"detail": f"File too large (max {max_upload_bytes() // (1024*1024)} MB).", "code": "file_too_large"},

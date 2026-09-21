@@ -103,6 +103,13 @@ mark { background: #3d2f10; color: #ffd88a; border-radius: 3px; padding: 0 2px; 
 .bell { position: relative; }
 .bell-panel { position: absolute; bottom: 44px; left: 0; width: 320px; max-height: 420px; overflow: auto; z-index: 20; }
 .finding { border-top: 1px solid var(--border); padding: 10px 0; }
+.eval-banner {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  background: #0f2e23; border: 1px solid #1f5c44; border-radius: 10px;
+  padding: 10px 14px; margin-bottom: 16px; font-size: 13px;
+}
+.eval-steps { padding-left: 20px; font-size: 14px; }
+.eval-steps li { margin-bottom: 6px; }
 .diff-cols { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 .diff-old { background: #2e1113; border: 1px solid #6e2226; border-radius: 8px; padding: 10px; font-size: 13px; }
 .diff-new { background: #0f2e23; border: 1px solid #1f5c44; border-radius: 8px; padding: 10px; font-size: 13px; }

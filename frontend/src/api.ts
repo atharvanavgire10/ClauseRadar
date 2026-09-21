@@ -458,6 +458,9 @@ export const api = {
   aiStatus: () => request<{ provider: string; configured: boolean; model: string | null; note: string }>('/api/v1/ai/status/'),
   askQA: (input: { workspace?: string; contract?: string; question: string }) =>
     request<QAResponse>('/api/v1/ai/ask/', { method: 'POST', body: JSON.stringify(input) }),
+  evalInfo: () => request<{ enabled: boolean; seeded: boolean; organization?: string; contracts?: number; clauses?: number; obligations?: number }>('/api/v1/eval/info/'),
+  evalSession: () => request<{ user: User; token: string; workspace: string }>('/api/v1/eval/session/', { method: 'POST' }),
+  resetEval: () => request<{ reset: boolean; contracts: number; obligations: number }>('/api/v1/eval/reset/', { method: 'POST' }),
   notifications: (query = '') => request<Paginated<NotificationItem>>(`/api/v1/notifications/${query}`),
   unreadCount: () => request<{ unread: number }>('/api/v1/notifications/unread-count/'),
   markNotificationRead: (id: string) => request<NotificationItem>(`/api/v1/notifications/${id}/read/`, { method: 'POST' }),
