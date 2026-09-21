@@ -117,9 +117,7 @@ def assess_obligation(ob, *, today=None) -> list[dict]:
 
 def assess_contract(contract, *, today=None) -> tuple[int, list[dict]]:
     """Full assessment: obligation findings + contract-level renewal rule."""
-    from deadlines.engine import today_in_tz as _today  # local alias, no cycle
-
-    today = today or _today()
+    today = today or today_in_tz()
     w = weights()
     findings: list[dict] = []
     for ob in contract.obligations.select_related("clause").prefetch_related("deadlines", "evidences").all():
