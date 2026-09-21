@@ -138,6 +138,31 @@ export interface AuditEvent {
   created_at: string;
 }
 
+export interface Document {
+  id: string;
+  workspace: string;
+  workspace_slug: string;
+  contract: string;
+  file: string;
+  original_filename: string;
+  mime: string;
+  size_bytes: number;
+  sha256: string;
+  status: 'UPLOADED' | 'PROCESSING' | 'READY' | 'FAILED';
+  page_count: number;
+  error_message: string;
+  ocr_used: boolean;
+  processed_at: string | null;
+  created_at: string;
+}
+
+export interface DocumentPage {
+  id: string;
+  page_number: number;
+  text: string;
+  char_count: number;
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -171,4 +196,56 @@ export const api = {
     request<Contract>(`/api/v1/contracts/${id}/`, { method: 'PATCH', body: JSON.stringify(input) }),
 
   audit: (query = '') => request<Paginated<AuditEvent>>(`/api/v1/audit/${query}`),
+
+  documents: (query = '') => request<Paginated<Document>>(`/api/v1/documents/${query}`),
+  documentPages: (id: string) => request<Paginated<DocumentPage> | DocumentPage[]>(`/api/v1/documents/${id}/pages/`),
+  reprocessDocument: (id: string) =>
+    request<Document>(`/api/v1/documents/${id}/reprocess/`, { method: 'POST' }),
+  deleteDocument: async (id: string): Promise<void> => {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/v1/documents/${id}/`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: token ? { Authorization: `Token ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Delete failed (${res.status})`);
+  },
+  uploadDocument: async (contractId: string, file: File): Promise<Document> => {
+    const token = getToken();
+    const form = new FormData();
+    form.append('contract', contractId);
+    form.append('file', file, file.name);
+    const res = await fetch(`${API_BASE}/api/v1/documents/`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: token ? { Authorization: `Token ${token}` } : {},
+      body: form,
+    });
+    const body = await res.json().catch(() => null);
+    if (!res.ok) {
+      const detail = (body as { detail?: string })?.detail ?? `Upload failed (${res.status})`;
+      const err = new Error(detail) as Error & { status?: number; existing_id?: string };
+      err.status = res.status;
+      err.existing_id = (body as { existing_id?: string })?.existing_id;
+      throw err;
+    }
+    return body as Document;
+  },
+  downloadDocument: async (id: string, filename: string): Promise<void> => {
+    const token = getToken();
+    const res = await fetch(`${API_BASE}/api/v1/documents/${id}/download/`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Token ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
 };

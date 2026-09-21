@@ -91,6 +91,9 @@ th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--bo
 th { color: var(--muted); font-weight: 600; background: #0d1528; }
 tr:last-child td { border-bottom: 0; }
 .row-active td { background: #152038; }
+.row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.page-text { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
+.page-text pre { white-space: pre-wrap; font-size: 13px; color: var(--text); background: #0d1528; padding: 12px; border-radius: 8px; max-height: 320px; overflow: auto; }
 
 .dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
 .dl dt { color: var(--muted); }
