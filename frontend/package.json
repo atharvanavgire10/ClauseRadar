@@ -6,12 +6,13 @@
   "scripts": {
     "dev": "vite --port 5173",
     "build": "vite build",
+    "prebuild:prod": "node scripts/verify-api-url.js --env-only",
+    "build:prod": "vite build && node scripts/verify-api-url.js",
     "preview": "vite preview --port 5173",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:install": "playwright install chromium",
-    "lint": "eslint src --ext .ts,.tsx,.js,.jsx --max-warnings 0",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

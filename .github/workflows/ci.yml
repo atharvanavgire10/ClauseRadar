@@ -77,3 +77,67 @@ jobs:
         run: npm --prefix frontend run test:e2e
         env:
           E2E_BASE_URL: http://127.0.0.1:5173
+
+  integration:
+    # Production-shaped: real PostgreSQL + Redis, full suite, plus a live
+    # broker→worker round-trip (worker started below; eager stays on for the
+    # deterministic suite, the worker test opts out explicitly).
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: clausradar
+          POSTGRES_PASSWORD: clausradar
+          POSTGRES_DB: clauseradar
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://clausradar:clausradar@localhost:5432/clauseradar
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "True"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Migrate on PostgreSQL
+        run: python backend/manage.py migrate
+      - name: Start celery worker (for the broker round-trip test)
+        run: |
+          cd backend && celery -A config worker --loglevel=warning --concurrency=1 > /tmp/worker.log 2>&1 &
+          sleep 20
+      - name: Full suite against PostgreSQL + Redis
+        run: pytest -q
+
+  docker:
+    # Production containerization proof: compose renders and both images build.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate production compose file
+        run: |
+          printf 'DJANGO_SECRET_KEY=ci-only-secret\nDJANGO_DEBUG=False\nDJANGO_ALLOWED_HOSTS=example.com\nPOSTGRES_PASSWORD=ci-pw\nFRONTEND_URL=https://web.example.com\nCORS_ALLOWED_ORIGINS=https://web.example.com\nVITE_API_URL=https://api.example.com\n' > .env
+          docker compose -f docker-compose.prod.yml config --quiet
+      - name: Build production images
+        run: |
+          docker build -f docker/backend.Dockerfile -t clauseradar-api:ci .
+          docker build -f docker/frontend.Dockerfile --build-arg VITE_API_URL=https://api.example.com -t clauseradar-web:ci .
