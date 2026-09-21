@@ -49,5 +49,6 @@ urlpatterns = [
     path("api/v1/ai/status/", ai_status, name="ai-status"),
     path("api/v1/ai/classify/", ai_classify, name="ai-classify"),
     path("api/v1/ai/ask/", ai_ask, name="ai-ask"),
+    path("api/internal/cron/", include("cron.urls")),
     path("api/v1/", include(router.urls)),
 ]

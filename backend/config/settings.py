@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "ai",
     "notifications",
     "eval",
+    "cron",
     "audit",
 ]
 

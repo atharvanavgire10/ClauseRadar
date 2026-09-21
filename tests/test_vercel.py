@@ -349,3 +349,96 @@ def test_blob_upload_processes_end_to_end(blob_server, db):
 
         assert client.delete(f"/api/v1/documents/{doc_id}/").status_code == 204
         assert _FakeBlobHandler.store == {}  # blob deleted alongside the row
+# ---------------------------------------------------------------------------
+
+def _cron_setup(db):
+    from django.contrib.auth import get_user_model
+
+    from contracts.models import Contract
+    from obligations.models import Obligation
+    from organizations.models import Organization, OrganizationMembership
+    from workspaces.models import Workspace, WorkspaceMembership
+
+    User = get_user_model()
+    user = User.objects.create_user(email="cron@example.com", password="password123")
+    org = Organization.objects.create(name="Acme", created_by=user)
+    OrganizationMembership.objects.create(organization=org, user=user, role="OWNER")
+    ws = Workspace.objects.create(organization=org, name="Legal", created_by=user)
+    WorkspaceMembership.objects.create(workspace=ws, user=user, role="OWNER")
+    contract = Contract.objects.create(
+        workspace=ws, title="MSA", start_date="2026-01-15", created_by=user)
+    Obligation.objects.create(
+        workspace=ws, contract=contract, title="Monthly reports",
+        obligation_type="REPORTING", frequency="MONTHLY",
+        source_text="The Vendor shall deliver monthly reports.", status="ACTIVE")
+    return ws
+
+
+def test_cron_rejects_unauthenticated(db):
+    from rest_framework.test import APIClient
+
+    anon = APIClient()
+    for url in ("/api/internal/cron/recurring-deadlines/", "/api/internal/cron/deadline-scan/"):
+        assert anon.get(url).status_code == 403
+        assert anon.post(url).status_code == 403
+        assert anon.get(url, HTTP_AUTHORIZATION="Bearer wrong").status_code == 403
+
+
+def test_cron_recurring_deadlines_idempotent(db):
+    from django.test import override_settings
+    from rest_framework.test import APIClient
+
+    from audit.models import AuditEvent
+    from deadlines.models import Deadline
+
+    _cron_setup(db)
+    with override_settings(CRON_SECRET="s3cret"):
+        client = APIClient()
+        auth = {"HTTP_AUTHORIZATION": "Bearer s3cret"}
+        first = client.post("/api/internal/cron/recurring-deadlines/", **auth)
+        assert first.status_code == 200, first.content
+        assert first.json()["ok"] is True
+        assert first.json()["deadlines"] >= 1
+        assert "contracts" not in first.json() and "results" not in first.json()  # no data leak
+        second = client.get("/api/internal/cron/recurring-deadlines/", **auth)  # GET also accepted (Vercel sends GET)
+        assert second.status_code == 200
+        assert second.json()["deadlines"] == 0  # idempotent: nothing new
+        assert Deadline.objects.filter(kind="RECURRING").exists()
+        assert AuditEvent.objects.filter(action="cron.recurring_generated").exists()
+
+
+def test_cron_deadline_scan_idempotent(db):
+    from datetime import date, timedelta
+
+    from django.test import override_settings
+    from rest_framework.test import APIClient
+
+    from audit.models import AuditEvent
+    from contracts.models import Contract
+    from deadlines.models import Deadline
+    from workspaces.models import Workspace
+
+    ws = _cron_setup(db)
+    contract = Contract.objects.filter(workspace=ws).first()
+    Deadline.objects.create(
+        workspace=ws, contract=contract, title="Renewal",
+        kind="RENEWAL", due_date=date.today() + timedelta(days=3), rule="test")
+    with override_settings(CRON_SECRET="s3cret"):
+        client = APIClient()
+        auth = {"HTTP_AUTHORIZATION": "Bearer s3cret"}
+        first = client.post("/api/internal/cron/deadline-scan/", **auth)
+        assert first.status_code == 200, first.content
+        assert first.json()["notifications"] >= 1
+        second = client.post("/api/internal/cron/deadline-scan/", **auth)
+        assert second.json()["notifications"] == 0  # per-day dedupe: safe rerun
+        assert AuditEvent.objects.filter(action="cron.deadline_scan").exists()
+
+
+def test_cron_disabled_without_secret(db):
+    """With no CRON_SECRET configured, every cron call is rejected."""
+    from rest_framework.test import APIClient
+
+    _cron_setup(db)
+    anon = APIClient()
+    assert anon.post("/api/internal/cron/recurring-deadlines/",
+                     HTTP_AUTHORIZATION="Bearer anything").status_code == 403
