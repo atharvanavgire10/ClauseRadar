@@ -44,4 +44,12 @@ def extract_clauses_for_document(document_id, *, method: str = "RULE") -> int:
             entity_type="document", entity_id=doc.id, action="document.clauses_extracted",
             metadata={"clauses": len(clauses), "method": method, "contract": str(doc.contract_id)},
         )
-        return len(clauses)
+        count = len(clauses)
+    # Obligation extraction follows clause extraction (best-effort, never fatal).
+    try:
+        from obligations.services import extract_obligations_for_document
+
+        extract_obligations_for_document(document_id, method=method)
+    except Exception:  # pragma: no cover
+        pass
+    return count

@@ -182,6 +182,34 @@ export interface Clause {
   created_at: string;
 }
 
+export interface Obligation {
+  id: string;
+  workspace: string;
+  contract: string;
+  contract_title: string;
+  document: string | null;
+  clause: string | null;
+  page_number: number;
+  source_text: string;
+  title: string;
+  obligation_type: string;
+  actor: string;
+  action: string;
+  requirement: string;
+  frequency: string;
+  evidence_required: string;
+  status: string;
+  confidence: number;
+  extraction_method: string;
+  owner: string | null;
+  owner_email: string | null;
+  reviewer: string | null;
+  reviewer_email: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -250,6 +278,14 @@ export const api = {
     }
     return body as Document;
   },
+  obligations: (query = '') => request<Paginated<Obligation>>(`/api/v1/obligations/${query}`),
+  obligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/`),
+  updateObligation: (id: string, input: Partial<Obligation>) =>
+    request<Obligation>(`/api/v1/obligations/${id}/`, { method: 'PATCH', body: JSON.stringify(input) }),
+  confirmObligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/confirm/`, { method: 'POST' }),
+  rejectObligation: (id: string, reason?: string) =>
+    request<Obligation>(`/api/v1/obligations/${id}/reject/`, { method: 'POST', body: JSON.stringify({ reason: reason ?? '' }) }),
+  activateObligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/activate/`, { method: 'POST' }),
   clauses: (query = '') => request<Paginated<Clause>>(`/api/v1/clauses/${query}`),
   downloadDocument: async (id: string, filename: string): Promise<void> => {
     const token = getToken();

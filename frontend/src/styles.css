@@ -94,6 +94,9 @@ tr:last-child td { border-bottom: 0; }
 .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .page-text { border-top: 1px solid var(--border); padding-top: 10px; margin-top: 10px; }
 .page-text pre { white-space: pre-wrap; font-size: 13px; color: var(--text); background: #0d1528; padding: 12px; border-radius: 8px; max-height: 320px; overflow: auto; }
+.evidence { border-left: 3px solid var(--accent); margin: 8px 0; padding: 8px 12px; background: #0d1528; border-radius: 0 8px 8px 0; font-size: 13px; white-space: pre-wrap; }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+blockquote { margin-left: 0; }
 
 .dl { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; margin: 0; }
 .dl dt { color: var(--muted); }
