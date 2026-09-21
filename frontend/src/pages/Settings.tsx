@@ -1,9 +1,30 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, getErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { EmptyState, PageHeader } from '../components';
+
+function AIStatusCard() {
+  const status = useQuery({ queryKey: ['ai-status'], queryFn: api.aiStatus });
+  return (
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>AI assistance</h3>
+      {status.isPending && <p className="muted">Checking…</p>}
+      {status.isError && <p className="muted">Status unavailable.</p>}
+      {status.data && (
+        <>
+          <p>
+            <span className={`badge ${status.data.configured ? 'badge-ok' : 'badge-neutral'}`}>
+              {status.data.configured ? `ENABLED · ${status.data.provider}` : 'DISABLED'}
+            </span>
+          </p>
+          <p className="muted" style={{ fontSize: 13 }}>{status.data.note}</p>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function Settings() {
   const { user, workspaces, activeWorkspace, refreshWorkspaces } = useAuth();
@@ -76,6 +97,7 @@ export default function Settings() {
     <div>
       <PageHeader title="Settings" subtitle={`Signed in as ${user.email}. Manage organizations and workspaces.`} />
       {message && <p className="muted" role="status">{message}</p>}
+      <AIStatusCard />
       <div className="grid">
         <form className="card form" onSubmit={onCreateOrg} onFocus={loadOrgs}>
           <h3 style={{ marginTop: 0 }}>New organization</h3>

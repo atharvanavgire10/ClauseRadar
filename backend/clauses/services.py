@@ -22,6 +22,18 @@ def extract_clauses_for_document(document_id, *, method: str = "RULE") -> int:
         for page in pages:
             for heading, text, start, end in segment_page(page.text or ""):
                 clause_type, confidence = classify(f"{heading}\n{text}" if heading else text)
+                used_method = method
+                if method in ("RULE", "HYBRID"):
+                    try:
+                        from ai.service import classify_clause_ai, get_provider
+
+                        if get_provider() is not None:
+                            ai_result = classify_clause_ai(f"{heading}\n{text}" if heading else text)
+                            if ai_result is not None:
+                                used_method = "HYBRID" if ai_result["clause_type"] == clause_type else "LLM"
+                                clause_type, confidence = ai_result["clause_type"], ai_result["confidence"]
+                    except Exception:  # pragma: no cover - AI must never break extraction
+                        pass
                 clauses.append(
                     Clause(
                         workspace=doc.workspace,
@@ -35,7 +47,7 @@ def extract_clauses_for_document(document_id, *, method: str = "RULE") -> int:
                         start_offset=start,
                         end_offset=end,
                         confidence=confidence,
-                        extraction_method=method,
+                        extraction_method=used_method if used_method in ("RULE", "LLM", "HYBRID") else "RULE",
                     )
                 )
         Clause.objects.bulk_create(clauses)

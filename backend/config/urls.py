@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from ai.views import ai_classify, ai_status
 from audit.views import AuditEventViewSet
 from clauses.views import ClauseViewSet
 from contracts.views import ContractViewSet
@@ -38,5 +39,7 @@ urlpatterns = [
     path("api/v1/", include("core.urls")),
     path("api/v1/auth/", include("accounts.urls")),
     path("api/v1/search/", unified_search, name="unified-search"),
+    path("api/v1/ai/status/", ai_status, name="ai-status"),
+    path("api/v1/ai/classify/", ai_classify, name="ai-classify"),
     path("api/v1/", include(router.urls)),
 ]
