@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from core.permissions import user_can_write_workspace
 from .models import Deadline
 from .serializers import DeadlineSerializer
-from .services import generate_for_contract, set_completed, set_waived
+from .services import generate_for_contract, generate_recurring_for_obligation, set_completed, set_waived
 
 
 class DeadlineViewSet(viewsets.ModelViewSet):
@@ -85,3 +85,19 @@ class DeadlineViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("You do not have write access to this workspace.")
         count = generate_for_contract(contract.id)
         return Response({"contract": str(contract.id), "deadlines": count})
+
+    @action(detail=False, methods=["post"], url_path="generate-recurring")
+    def generate_recurring(self, request):
+        from obligations.models import Obligation
+
+        obligation_id = request.data.get("obligation")
+        if not obligation_id:
+            return Response({"detail": "obligation is required.", "code": "validation_error"}, status=400)
+        try:
+            ob = Obligation.objects.select_related("workspace").get(pk=obligation_id)
+        except Obligation.DoesNotExist:
+            return Response({"detail": "Not found.", "code": "not_found"}, status=404)
+        if not user_can_write_workspace(request.user, ob.workspace):
+            raise PermissionDenied("You do not have write access to this workspace.")
+        count = generate_recurring_for_obligation(ob.id)
+        return Response({"obligation": str(ob.id), "deadlines": count})

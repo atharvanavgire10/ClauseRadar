@@ -1,5 +1,5 @@
 """Phase 07 tests — deadline engine math, statuses, generation, transitions."""
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -116,14 +116,17 @@ def test_generation_from_renewal_and_end(setup):
 def test_deadline_api_statuses_and_transitions(setup):
     client = APIClient()
     client.force_authenticate(user=setup["user"])
-    contract = Contract.objects.create(
-        workspace=setup["ws"], title="D", renewal_date=date(2026, 12, 15),
-    )
+    # Renewal 5 days out from real today → DUE_SOON (no freeze: freezegun
+    # breaks DRF throttling around API calls).
+    with freeze_time("2026-09-21"):
+        from deadlines.engine import today_in_tz
+
+        renewal = today_in_tz() + timedelta(days=5)
+    contract = Contract.objects.create(workspace=setup["ws"], title="D", renewal_date=renewal)
     client.post("/api/v1/deadlines/generate/", {"contract": str(contract.id)}, format="json")
-    with freeze_time("2026-12-10"):
-        r = client.get(f"/api/v1/deadlines/?contract={contract.id}&status=DUE_SOON")
-        assert r.status_code == 200
-        assert r.json()["count"] >= 1  # renewal 5 days out
+    r = client.get(f"/api/v1/deadlines/?contract={contract.id}&status=DUE_SOON")
+    assert r.status_code == 200
+    assert r.json()["count"] >= 1  # renewal 5 days out
     dl = Deadline.objects.filter(contract=contract, kind="RENEWAL").first()
     assert client.post(f"/api/v1/deadlines/{dl.id}/complete/").json()["status"] == "COMPLETED"
     assert client.post(f"/api/v1/deadlines/{dl.id}/reopen/").json()["status"] != "COMPLETED"
