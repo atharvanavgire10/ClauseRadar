@@ -11,6 +11,7 @@ import Contracts from './pages/Contracts';
 import FuturePlaceholder from './pages/FuturePlaceholder';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
+import Obligations from './pages/Obligations';
 import Overview from './pages/Overview';
 import Register from './pages/Register';
 import SearchPage from './pages/SearchPage';
@@ -46,7 +47,7 @@ const router = createBrowserRouter([
       { path: 'register', element: <GuestOnly><Register /></GuestOnly> },
       { path: 'contracts', element: <Contracts /> },
       { path: 'contracts/:id', element: <ContractDetail /> },
-      { path: 'obligations', element: <FuturePlaceholder title="Obligations" /> },
+      { path: 'obligations', element: <Obligations /> },
       { path: 'deadlines', element: <FuturePlaceholder title="Deadlines" /> },
       { path: 'risks', element: <FuturePlaceholder title="Risk Radar" /> },
       { path: 'search', element: <SearchPage /> },

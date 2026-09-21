@@ -7,6 +7,7 @@ import { useAuth } from '../auth';
 import { EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from '../components';
 import ClausesSection from '../components/ClausesSection';
 import DocumentsSection from '../components/DocumentsSection';
+import ObligationsSection from '../components/ObligationsSection';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'ARCHIVED'];
 
@@ -89,6 +90,7 @@ export default function ContractDetail() {
       <ClausesSection contractId={c.id} onViewSource={() => {
         document.querySelector('section[aria-label="Documents"]')?.scrollIntoView({ behavior: 'smooth' });
       }} />
+      <ObligationsSection contractId={c.id} />
       <h2>Related audit</h2>
       {relatedAudit.isPending && <Loading label="Loading related audit…" />}
       {relatedAudit.isError && <p className="muted">Unable to load related audit.</p>}
