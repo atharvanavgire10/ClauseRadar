@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, getErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from '../components';
+import DocumentsSection from '../components/DocumentsSection';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'ARCHIVED'];
 
@@ -83,10 +84,11 @@ export default function ContractDetail() {
           </form>
         </div>
       </div>
+      <DocumentsSection contractId={c.id} />
       <h2>Evidence &amp; extraction</h2>
       <EmptyState
         title="No clauses yet"
-        hint="Document ingestion, clause extraction, and obligation tracking land in Phases 03–06. This page already reads and writes live contract data."
+        hint="Clause extraction lands in Phase 04 and builds on the document pages above. This page already reads and writes live contract data."
       />
       <h2>Related audit</h2>
       {relatedAudit.isPending && <Loading label="Loading related audit…" />}

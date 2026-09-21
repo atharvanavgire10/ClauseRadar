@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "organizations",
     "workspaces",
     "contracts",
+    "documents",
     "audit",
 ]
 

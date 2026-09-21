@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from audit.views import AuditEventViewSet
 from contracts.views import ContractViewSet
+from documents.views import DocumentViewSet
 from core.views import api_info_view, health_view, ready_view
 from organizations.views import OrganizationViewSet
 from workspaces.views import WorkspaceViewSet
@@ -12,6 +13,7 @@ from workspaces.views import WorkspaceViewSet
 router = DefaultRouter()
 router.register(r"workspaces", WorkspaceViewSet, basename="workspace")
 router.register(r"contracts", ContractViewSet, basename="contract")
+router.register(r"documents", DocumentViewSet, basename="document")
 router.register(r"audit", AuditEventViewSet, basename="audit")
 router.register(r"organizations", OrganizationViewSet, basename="organization")
 
