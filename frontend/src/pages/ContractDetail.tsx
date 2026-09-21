@@ -9,6 +9,7 @@ import ClausesSection from '../components/ClausesSection';
 import DocumentsSection from '../components/DocumentsSection';
 import ObligationsSection from '../components/ObligationsSection';
 import { TasksSection } from '../components/OperationsPanel';
+import VersionsSection from '../components/VersionsSection';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'ARCHIVED'];
 
@@ -92,6 +93,7 @@ export default function ContractDetail() {
         document.querySelector('section[aria-label="Documents"]')?.scrollIntoView({ behavior: 'smooth' });
       }} />
       <ObligationsSection contractId={c.id} />
+      <VersionsSection contractId={c.id} />
       <TasksSection contractId={c.id} />
       <h2>Related audit</h2>
       {relatedAudit.isPending && <Loading label="Loading related audit…" />}

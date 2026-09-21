@@ -40,3 +40,29 @@ class Contract(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return self.title
+
+
+class ContractVersion(models.Model):
+    """One uploaded iteration of a contract. Created automatically per document."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="versions")
+    version_number = models.PositiveIntegerField(db_index=True)
+    document = models.OneToOneField(
+        "documents.Document", null=True, blank=True, on_delete=models.SET_NULL, related_name="contract_version"
+    )
+    notes = models.CharField(max_length=500, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="created_versions"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["version_number"]
+        constraints = [
+            models.UniqueConstraint(fields=["contract", "version_number"], name="uniq_contract_version"),
+        ]
+        indexes = [models.Index(fields=["contract", "version_number"])]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"{self.contract.title} v{self.version_number}"

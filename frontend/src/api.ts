@@ -319,6 +319,32 @@ export interface SearchResponse {
   results: SearchHit[];
 }
 
+export interface ContractVersion {
+  id: string;
+  contract: string;
+  version_number: number;
+  document: string | null;
+  document_name: string | null;
+  notes: string;
+  created_at: string;
+}
+
+export interface VersionDiff {
+  contract: string;
+  from_version: number;
+  to_version: number;
+  counts: { added: number; removed: number; modified: number; unchanged: number };
+  added: Array<{ id: string; clause_type: string; heading: string; text: string; page_number: number }>;
+  removed: Array<{ old: { text: string; clause_type: string; page_number: number }; affected_obligations: Array<{ id: string; title: string; status: string }>; impact: string }>;
+  modified: Array<{
+    old: { text: string; clause_type: string; page_number: number };
+    new: { text: string; clause_type: string; page_number: number };
+    similarity: number; impact: string;
+    affected_obligations: Array<{ id: string; title: string; status: string }>;
+  }>;
+  unchanged: Array<unknown>;
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -441,6 +467,10 @@ export const api = {
     request<Obligation>(`/api/v1/obligations/${id}/waive/`, { method: 'POST', body: JSON.stringify({ reason: reason ?? '' }) }),
   assignObligation: (id: string, email: string) =>
     request<Obligation>(`/api/v1/obligations/${id}/assign/`, { method: 'POST', body: JSON.stringify({ email }) }),
+  contractVersions: (contractId: string) =>
+    request<ContractVersion[]>(`/api/v1/contracts/${contractId}/versions/`),
+  compareVersions: (contractId: string, from: number, to: number) =>
+    request<VersionDiff>(`/api/v1/contracts/${contractId}/compare/?from=${from}&to=${to}`),
   obligations: (query = '') => request<Paginated<Obligation>>(`/api/v1/obligations/${query}`),
   obligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/`),
   updateObligation: (id: string, input: Partial<Obligation>) =>

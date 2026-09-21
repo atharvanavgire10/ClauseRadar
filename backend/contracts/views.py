@@ -1,12 +1,15 @@
 from django.db import transaction
 from rest_framework import viewsets
+from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 
 from audit.services import log_event
 from core.permissions import user_can_access_workspace, user_can_write_workspace
-from .models import Contract
-from .serializers import ContractSerializer
+from .models import Contract, ContractVersion
+from .serializers import ContractSerializer, ContractVersionSerializer
+from .versions import compare_versions, ensure_versions_for_contract
 
 
 class ContractViewSet(viewsets.ModelViewSet):
@@ -80,3 +83,24 @@ class ContractViewSet(viewsets.ModelViewSet):
             metadata={"title": instance.title},
         )
         instance.delete()
+
+    @action(detail=True, methods=["get"])
+    def versions(self, request, pk=None):
+        contract = self.get_object()
+        ensure_versions_for_contract(contract.id)
+        versions = ContractVersion.objects.filter(contract=contract).order_by("version_number")
+        return Response(ContractVersionSerializer(versions, many=True).data)
+
+    @action(detail=True, methods=["get"], url_path="compare")
+    def compare(self, request, pk=None):
+        contract = self.get_object()
+        try:
+            from_number = int(request.query_params.get("from", ""))
+            to_number = int(request.query_params.get("to", ""))
+        except (TypeError, ValueError):
+            return Response({"detail": "from and to version numbers are required.", "code": "validation_error"}, status=400)
+        try:
+            result = compare_versions(contract.id, from_number, to_number)
+        except ValueError as exc:
+            return Response({"detail": str(exc), "code": "not_found"}, status=404)
+        return Response(result)

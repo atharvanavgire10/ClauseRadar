@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Contract
+from .models import Contract, ContractVersion
 
 
 class ContractSerializer(serializers.ModelSerializer):
@@ -37,3 +37,13 @@ class ContractSerializer(serializers.ModelSerializer):
         if start and end and end < start:
             raise serializers.ValidationError({"end_date": "End date cannot be before start date."})
         return attrs
+
+
+class ContractVersionSerializer(serializers.ModelSerializer):
+    document_name = serializers.CharField(source="document.original_filename", read_only=True, default=None)
+
+    class Meta:
+        model = ContractVersion
+        fields = ("id", "contract", "version_number", "document", "document_name",
+                  "notes", "created_at")
+        read_only_fields = fields
