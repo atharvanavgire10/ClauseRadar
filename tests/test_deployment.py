@@ -32,3 +32,21 @@ def test_throttle_scopes_include_eval():
     rates = settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]
     assert rates["eval_session"] == "30/hour"
     assert rates["eval_reset"] == "10/hour"
+    assert rates["ai_burst"] == "60/hour"
+
+
+def test_dev_secret_refused_when_debug_false():
+    """Production safety model: default key + DEBUG=False must fail at import."""
+    import os
+    import subprocess
+    import sys
+
+    backend_dir = os.path.join(os.path.dirname(__file__), "..", "backend")
+    env = {**os.environ, "DJANGO_DEBUG": "False"}
+    env.pop("DJANGO_SECRET_KEY", None)
+    proc = subprocess.run(
+        [sys.executable, "-c", "import config.settings"],
+        cwd=backend_dir, capture_output=True, text=True, env=env, timeout=120,
+    )
+    assert proc.returncode != 0
+    assert "SECRET_KEY" in proc.stderr

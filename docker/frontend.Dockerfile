@@ -3,7 +3,11 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
-RUN npm run build
+# VITE_API_URL is baked into the bundle at build time: there is no runtime
+# fallback. Production builds MUST pass --build-arg VITE_API_URL=<api origin>.
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+RUN npm run build:prod
 
 FROM nginx:alpine
 COPY --from=build /app/frontend/dist /usr/share/nginx/html
