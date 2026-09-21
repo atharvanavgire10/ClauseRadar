@@ -262,6 +262,46 @@ def test_blob_storage_backend_roundtrip(blob_server):
         storage.delete(name)
 
 
+def test_no_redis_required_in_vercel_mode(db):
+    """With eager off but VERCEL_DEPLOYMENT on, uploads still process inline.
+
+    Proves the Vercel path never touches the broker (no Redis is running in
+    this test — a .delay() call would fail loudly instead of returning READY).
+    """
+    from django.contrib.auth import get_user_model
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from django.test import override_settings
+    from rest_framework.test import APIClient
+
+    from contracts.models import Contract
+    from organizations.models import Organization, OrganizationMembership
+    from workspaces.models import Workspace, WorkspaceMembership
+
+    User = get_user_model()
+    with override_settings(CELERY_TASK_ALWAYS_EAGER=False, VERCEL_DEPLOYMENT=True):
+        user = User.objects.create_user(email="novredis@example.com", password="password123")
+        org = Organization.objects.create(name="Acme", created_by=user)
+        OrganizationMembership.objects.create(organization=org, user=user, role="OWNER")
+        ws = Workspace.objects.create(organization=org, name="Legal", created_by=user)
+        WorkspaceMembership.objects.create(workspace=ws, user=user, role="OWNER")
+        contract = Contract.objects.create(workspace=ws, title="MSA", created_by=user)
+
+        import fitz
+
+        doc = fitz.open()
+        page = doc.new_page()
+        page.insert_text((72, 72), "The Vendor shall maintain insurance at all times during the term.")
+        pdf = bytes(doc.tobytes())
+        doc.close()
+
+        client = APIClient()
+        client.force_authenticate(user=user)
+        f = SimpleUploadedFile("v.pdf", pdf, content_type="application/pdf")
+        r = client.post("/api/v1/documents/", {"contract": str(contract.id), "file": f}, format="multipart")
+        assert r.status_code == 201, r.content
+        assert r.json()["status"] == "READY"
+
+
 def test_blob_upload_processes_end_to_end(blob_server, db):
     """Full pipeline on Blob storage: upload → temp download → READY → download."""
     from django.contrib.auth import get_user_model
