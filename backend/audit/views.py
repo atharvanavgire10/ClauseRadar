@@ -9,7 +9,7 @@ from .serializers import AuditEventSerializer
 class AuditEventViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     serializer_class = AuditEventSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ["workspace", "organization", "entity_type", "action"]
+    filterset_fields = ["workspace", "organization", "entity_type", "entity_id", "action"]
     search_fields = ["entity_type", "entity_id", "action"]
     ordering_fields = ["created_at"]
 
