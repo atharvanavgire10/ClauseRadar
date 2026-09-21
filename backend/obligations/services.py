@@ -44,6 +44,14 @@ def extract_obligations_for_document(document_id, *, method: str = "RULE") -> in
                 metadata={"title": ob.title, "type": ob.obligation_type,
                           "extraction_method": method, "document": str(doc.id)},
             )
+        # Obligation-level dated deadlines from explicit dates (best-effort).
+        try:
+            from deadlines.services import generate_for_obligation
+
+            for ob in Obligation.objects.filter(document=doc):
+                generate_for_obligation(ob.id)
+        except Exception:  # pragma: no cover
+            pass
         if made:
             log_event(
                 actor=doc.created_by, organization=doc.workspace.organization, workspace=doc.workspace,

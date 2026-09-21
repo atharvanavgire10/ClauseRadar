@@ -46,6 +46,12 @@ class ContractViewSet(viewsets.ModelViewSet):
             entity_type="contract", entity_id=contract.id, action="contract.created",
             metadata={"title": contract.title},
         )
+        try:
+            from deadlines.services import generate_for_contract
+
+            generate_for_contract(contract.id)
+        except Exception:  # pragma: no cover - deadlines must never break contracts
+            pass
 
     @transaction.atomic
     def perform_update(self, serializer):
@@ -57,6 +63,12 @@ class ContractViewSet(viewsets.ModelViewSet):
             entity_type="contract", entity_id=contract.id, action="contract.updated",
             metadata={"title": contract.title, "status": contract.status},
         )
+        try:
+            from deadlines.services import generate_for_contract
+
+            generate_for_contract(contract.id)
+        except Exception:  # pragma: no cover
+            pass
 
     @transaction.atomic
     def perform_destroy(self, instance):
