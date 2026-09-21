@@ -37,6 +37,8 @@ dist/
 dist-ssr/
 *.local
 /frontend/dist/
+/frontend/test-results/
+/frontend/playwright-report/
 
 # Vite
 vite.config.ts.timestamp-*
