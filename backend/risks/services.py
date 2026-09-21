@@ -14,6 +14,8 @@ def assess_contract_risks(contract_id) -> dict:
 
     with transaction.atomic():
         contract = Contract.objects.select_related("workspace").get(pk=contract_id)
+        previous_rows = list(RiskFinding.objects.filter(contract=contract))
+        previous = min(100, sum(f.points for f in previous_rows)) if previous_rows else None
         RiskFinding.objects.filter(contract=contract).delete()
         score, finding_dicts = assess_contract(contract)
         rows = [
@@ -30,6 +32,13 @@ def assess_contract_risks(contract_id) -> dict:
         log_event(actor=None, organization=contract.workspace.organization, workspace=contract.workspace,
                   entity_type="contract", entity_id=contract.id, action="contract.risk_assessed",
                   metadata={"score": score, "level": level_for(score), "findings": len(findings)})
+        try:
+            from notifications.services import notify_risk_increased
+
+            notify_risk_increased(workspace=contract.workspace, contract=contract,
+                                  score=score, previous=previous)
+        except Exception:  # pragma: no cover
+            pass
         return {"score": score, "level": level_for(score),
                 "findings": findings, "contract": contract}
 

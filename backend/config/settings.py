@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "workflows",
     "search",
     "ai",
+    "notifications",
     "audit",
 ]
 
@@ -153,6 +154,10 @@ CELERY_TIMEZONE = "UTC"
 CELERY_BEAT_SCHEDULE = {
     "roll-forward-recurring-deadlines-nightly": {
         "task": "deadlines.generate_recurring",
+        "schedule": 86400.0,
+    },
+    "deadline-notification-scan-daily": {
+        "task": "notifications.deadline_scan",
         "schedule": 86400.0,
     },
 }

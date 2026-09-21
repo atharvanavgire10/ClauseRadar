@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from './auth';
+import NotificationBell from './components/NotificationBell';
 
 export default function Shell() {
   const { user, authLoading, logout, workspaces, activeWorkspace, setActiveWorkspaceId } = useAuth();
@@ -51,6 +52,7 @@ export default function Shell() {
               <span className="muted" title={user.email}>
                 {user.display_name || user.email}
               </span>
+              <NotificationBell />
               <button className="btn secondary btn-sm" type="button" onClick={handleLogout}>
                 Log out
               </button>

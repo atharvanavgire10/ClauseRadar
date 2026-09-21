@@ -9,6 +9,7 @@ from clauses.views import ClauseViewSet
 from contracts.views import ContractViewSet
 from deadlines.views import DeadlineViewSet
 from documents.views import DocumentViewSet
+from notifications.views import NotificationPreferenceViewSet, NotificationViewSet
 from obligations.views import ObligationViewSet
 from risks.views import RiskFindingViewSet
 from search.views import unified_search
@@ -28,6 +29,8 @@ router.register(r"risks", RiskFindingViewSet, basename="risk")
 router.register(r"comments", CommentViewSet, basename="comment")
 router.register(r"evidence", EvidenceViewSet, basename="evidence")
 router.register(r"tasks", TaskViewSet, basename="task")
+router.register(r"notifications", NotificationViewSet, basename="notification")
+router.register(r"notification-prefs", NotificationPreferenceViewSet, basename="notification-pref")
 router.register(r"audit", AuditEventViewSet, basename="audit")
 router.register(r"organizations", OrganizationViewSet, basename="organization")
 

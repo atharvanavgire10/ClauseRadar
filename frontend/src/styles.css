@@ -100,6 +100,8 @@ blockquote { margin-left: 0; }
 mark { background: #3d2f10; color: #ffd88a; border-radius: 3px; padding: 0 2px; }
 .history { font-size: 13px; padding-left: 18px; }
 .history li { margin-bottom: 4px; }
+.bell { position: relative; }
+.bell-panel { position: absolute; bottom: 44px; left: 0; width: 320px; max-height: 420px; overflow: auto; z-index: 20; }
 .finding { border-top: 1px solid var(--border); padding: 10px 0; }
 .diff-cols { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
 .diff-old { background: #2e1113; border: 1px solid #6e2226; border-radius: 8px; padding: 10px; font-size: 13px; }

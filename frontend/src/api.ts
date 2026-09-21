@@ -362,6 +362,19 @@ export interface QAResponse {
   intent: string;
 }
 
+export interface NotificationItem {
+  id: string;
+  workspace: string;
+  workspace_slug: string;
+  kind: string;
+  title: string;
+  body: string;
+  entity_type: string;
+  entity_id: string;
+  read: boolean;
+  created_at: string;
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -445,6 +458,11 @@ export const api = {
   aiStatus: () => request<{ provider: string; configured: boolean; model: string | null; note: string }>('/api/v1/ai/status/'),
   askQA: (input: { workspace?: string; contract?: string; question: string }) =>
     request<QAResponse>('/api/v1/ai/ask/', { method: 'POST', body: JSON.stringify(input) }),
+  notifications: (query = '') => request<Paginated<NotificationItem>>(`/api/v1/notifications/${query}`),
+  unreadCount: () => request<{ unread: number }>('/api/v1/notifications/unread-count/'),
+  markNotificationRead: (id: string) => request<NotificationItem>(`/api/v1/notifications/${id}/read/`, { method: 'POST' }),
+  markAllRead: () => request<{ marked_read: number }>('/api/v1/notifications/read-all/', { method: 'POST' }),
+  notificationPrefs: () => request<Array<{ kind: string; in_app: boolean; email: boolean }>>('/api/v1/notification-prefs/all/'),
   unifiedSearch: (params: string) => request<SearchResponse>(`/api/v1/search/${params}`),
 
   comments: (query = '') => request<Paginated<Comment>>(`/api/v1/comments/${query}`),

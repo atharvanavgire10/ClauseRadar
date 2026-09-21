@@ -26,6 +26,30 @@ function AIStatusCard() {
   );
 }
 
+function NotificationPrefs() {
+  const prefs = useQuery({ queryKey: ['notification-prefs'], queryFn: api.notificationPrefs });
+  return (
+    <div className="card">
+      <h3 style={{ marginTop: 0 }}>Notification preferences</h3>
+      {prefs.isPending && <p className="muted">Loading…</p>}
+      {prefs.data && prefs.data.length === 0 && <p className="muted">No preference kinds.</p>}
+      {prefs.data && prefs.data.length > 0 && (
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th scope="col">Event</th><th scope="col">In-app</th><th scope="col">Email</th></tr></thead>
+            <tbody>
+              {prefs.data.map((p) => (
+                <tr key={p.kind}><td><code>{p.kind}</code></td><td>{p.in_app ? 'on' : 'off'}</td><td>{p.email ? 'on' : 'off'}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="muted" style={{ fontSize: 12 }}>Preferences are enforced server-side for both in-app delivery and email.</p>
+    </div>
+  );
+}
+
 export default function Settings() {
   const { user, workspaces, activeWorkspace, refreshWorkspaces } = useAuth();
   const queryClient = useQueryClient();
@@ -98,6 +122,7 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle={`Signed in as ${user.email}. Manage organizations and workspaces.`} />
       {message && <p className="muted" role="status">{message}</p>}
       <AIStatusCard />
+      <NotificationPrefs />
       <div className="grid">
         <form className="card form" onSubmit={onCreateOrg} onFocus={loadOrgs}>
           <h3 style={{ marginTop: 0 }}>New organization</h3>
