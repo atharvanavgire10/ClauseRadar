@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api, getErrorMessage } from '../api';
 import { useAuth } from '../auth';
 import { EmptyState, ErrorState, Loading, PageHeader, StatusBadge } from '../components';
+import ClausesSection from '../components/ClausesSection';
 import DocumentsSection from '../components/DocumentsSection';
 
 const STATUSES = ['DRAFT', 'ACTIVE', 'EXPIRED', 'TERMINATED', 'ARCHIVED'];
@@ -85,11 +86,9 @@ export default function ContractDetail() {
         </div>
       </div>
       <DocumentsSection contractId={c.id} />
-      <h2>Evidence &amp; extraction</h2>
-      <EmptyState
-        title="No clauses yet"
-        hint="Clause extraction lands in Phase 04 and builds on the document pages above. This page already reads and writes live contract data."
-      />
+      <ClausesSection contractId={c.id} onViewSource={() => {
+        document.querySelector('section[aria-label="Documents"]')?.scrollIntoView({ behavior: 'smooth' });
+      }} />
       <h2>Related audit</h2>
       {relatedAudit.isPending && <Loading label="Loading related audit…" />}
       {relatedAudit.isError && <p className="muted">Unable to load related audit.</p>}
