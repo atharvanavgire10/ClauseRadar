@@ -174,4 +174,10 @@ def assign_owner(obligation_id, *, actor, owner) -> Obligation:
             entity_type="obligation", entity_id=ob.id, action="obligation.owner_changed",
             metadata={"previous": previous, "owner": str(getattr(owner, "id", None))},
         )
+        try:
+            from notifications.services import notify_obligation_assigned
+
+            notify_obligation_assigned(obligation=ob, actor=actor)
+        except Exception:  # pragma: no cover - notifications must never break assignment
+            pass
         return ob

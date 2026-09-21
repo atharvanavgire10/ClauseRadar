@@ -93,5 +93,13 @@ def process_document(document_id, *, force: bool = False) -> Document:
         extract_clauses_for_document(doc.id)
     except Exception:  # pragma: no cover - logged by clause service when possible
         pass
+    try:
+        from notifications.services import notify_contract_processed
+
+        contract = doc.contract
+        notify_contract_processed(workspace=doc.workspace, actor=doc.created_by,
+                                  contract=contract, document=doc)
+    except Exception:  # pragma: no cover
+        pass
     doc.refresh_from_db()
     return doc
