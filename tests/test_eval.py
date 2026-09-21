@@ -103,3 +103,12 @@ def test_reset_restores_seed(eval_data):
     assert r.status_code == 200
     assert r.json()["contracts"] == 6
     assert r.json()["obligations"] >= 40
+
+
+def test_eval_session_rate_limited(db):
+    # Real configured rate is 30/hour; exhaust it from one IP. This test must
+    # stay last in this file: the throttle cache is per-process.
+    anon = APIClient()
+    codes = [anon.post("/api/v1/eval/session/").status_code for _ in range(31)]
+    assert codes[0] == 200
+    assert codes[-1] == 429, "session issuance must be rate limited"
