@@ -8,6 +8,7 @@ import Architecture from './pages/Architecture';
 import AuditLog from './pages/AuditLog';
 import ContractDetail from './pages/ContractDetail';
 import Contracts from './pages/Contracts';
+import Deadlines from './pages/Deadlines';
 import FuturePlaceholder from './pages/FuturePlaceholder';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
@@ -48,7 +49,7 @@ const router = createBrowserRouter([
       { path: 'contracts', element: <Contracts /> },
       { path: 'contracts/:id', element: <ContractDetail /> },
       { path: 'obligations', element: <Obligations /> },
-      { path: 'deadlines', element: <FuturePlaceholder title="Deadlines" /> },
+      { path: 'deadlines', element: <Deadlines /> },
       { path: 'risks', element: <FuturePlaceholder title="Risk Radar" /> },
       { path: 'search', element: <SearchPage /> },
       { path: 'audit', element: <AuditLog /> },

@@ -210,6 +210,27 @@ export interface Obligation {
   updated_at: string;
 }
 
+export interface Deadline {
+  id: string;
+  workspace: string;
+  contract: string;
+  contract_title: string;
+  obligation: string | null;
+  obligation_title: string | null;
+  title: string;
+  kind: string;
+  due_date: string;
+  anchor_date: string | null;
+  offset_days: number | null;
+  business_days: boolean;
+  rule: string;
+  status: 'UPCOMING' | 'DUE_SOON' | 'OVERDUE' | 'COMPLETED' | 'WAIVED';
+  completed: boolean;
+  waived: boolean;
+  completed_at: string | null;
+  created_at: string;
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -278,6 +299,12 @@ export const api = {
     }
     return body as Document;
   },
+  deadlines: (query = '') => request<Paginated<Deadline>>(`/api/v1/deadlines/${query}`),
+  completeDeadline: (id: string) => request<Deadline>(`/api/v1/deadlines/${id}/complete/`, { method: 'POST' }),
+  reopenDeadline: (id: string) => request<Deadline>(`/api/v1/deadlines/${id}/reopen/`, { method: 'POST' }),
+  waiveDeadline: (id: string) => request<Deadline>(`/api/v1/deadlines/${id}/waive/`, { method: 'POST' }),
+  generateDeadlines: (contractId: string) =>
+    request<{ contract: string; deadlines: number }>('/api/v1/deadlines/generate/', { method: 'POST', body: JSON.stringify({ contract: contractId }) }),
   obligations: (query = '') => request<Paginated<Obligation>>(`/api/v1/obligations/${query}`),
   obligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/`),
   updateObligation: (id: string, input: Partial<Obligation>) =>
