@@ -154,6 +154,17 @@ FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:5173")
 CORS_ALLOWED_ORIGINS = [o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", FRONTEND_URL).split(",") if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 
+# Production hardening — only when DEBUG=False (env-gated, safe defaults).
+if not DEBUG:
+    SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "True").lower() in {"1", "true", "yes"}
+    CSRF_COOKIE_SECURE = os.environ.get("CSRF_COOKIE_SECURE", "True").lower() in {"1", "true", "yes"}
+    SECURE_HSTS_SECONDS = int(os.environ.get("SECURE_HSTS_SECONDS", "0"))
+    if SECURE_HSTS_SECONDS:
+        SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+        SECURE_HSTS_PRELOAD = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = os.environ.get("SECURE_SSL_REDIRECT", "False").lower() in {"1", "true", "yes"}
+
 # Celery — eager fallback keeps the app functional without Redis
 CELERY_BROKER_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CELERY_RESULT_BACKEND = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
