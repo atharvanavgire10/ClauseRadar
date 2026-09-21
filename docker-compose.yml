@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: clausradar
+      POSTGRES_PASSWORD: clausradar
+      POSTGRES_DB: clauseradar
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clausradar"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    command: sh -c "python backend/manage.py migrate && python backend/manage.py runserver 0.0.0.0:8000"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://clausradar:clausradar@db:5432/clauseradar
+      REDIS_URL: redis://redis:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "False"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    command: celery -A config worker --loglevel=info
+    working_dir: /app/backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://clausradar:clausradar@db:5432/clauseradar
+      REDIS_URL: redis://redis:6379/0
+      CELERY_TASK_ALWAYS_EAGER: "False"
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      - db
+      - redis
+
+  beat:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    command: celery -A config beat --loglevel=info
+    working_dir: /app/backend
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgres://clausradar:clausradar@db:5432/clauseradar
+      REDIS_URL: redis://redis:6379/0
+    volumes:
+      - ./backend:/app/backend
+    depends_on:
+      - db
+      - redis
+
+volumes:
+  pgdata:
+  redisdata:
