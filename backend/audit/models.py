@@ -38,3 +38,12 @@ class AuditEvent(models.Model):
 
     def __str__(self) -> str:  # pragma: no cover
         return f"{self.action} {self.entity_type}:{self.entity_id}"
+
+    def save(self, *args, **kwargs):
+        # Append-only: existing rows can never be modified through the ORM.
+        if not self._state.adding and AuditEvent.objects.filter(pk=self.pk).exists():
+            raise ValueError("AuditEvent rows are immutable and cannot be updated.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValueError("AuditEvent rows cannot be deleted through the application.")
