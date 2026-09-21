@@ -85,4 +85,13 @@ def process_document(document_id, *, force: bool = False) -> Document:
             entity_type="contract", entity_id=doc.contract_id, action="contract.document_processed",
             metadata={"document": str(doc.id), "pages": len(pages)},
         )
+    # Deterministic clause extraction runs on every READY document (best-effort:
+    # clause failures must never break document processing).
+    try:
+        from clauses.services import extract_clauses_for_document
+
+        extract_clauses_for_document(doc.id)
+    except Exception:  # pragma: no cover - logged by clause service when possible
+        pass
+    doc.refresh_from_db()
     return doc

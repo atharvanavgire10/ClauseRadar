@@ -163,6 +163,25 @@ export interface DocumentPage {
   char_count: number;
 }
 
+export interface Clause {
+  id: string;
+  workspace: string;
+  contract: string;
+  contract_title: string;
+  document: string;
+  document_name: string;
+  page: string | null;
+  page_number: number;
+  heading: string;
+  text: string;
+  clause_type: string;
+  start_offset: number;
+  end_offset: number;
+  confidence: number;
+  extraction_method: string;
+  created_at: string;
+}
+
 export const api = {
   health: () => request<{ status: string; service: string; version: string }>('/api/health/'),
   ready: () => request<{ ready: boolean }>('/api/ready/'),
@@ -231,6 +250,7 @@ export const api = {
     }
     return body as Document;
   },
+  clauses: (query = '') => request<Paginated<Clause>>(`/api/v1/clauses/${query}`),
   downloadDocument: async (id: string, filename: string): Promise<void> => {
     const token = getToken();
     const res = await fetch(`${API_BASE}/api/v1/documents/${id}/download/`, {

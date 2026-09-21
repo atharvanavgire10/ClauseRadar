@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "workspaces",
     "contracts",
     "documents",
+    "clauses",
     "audit",
 ]
 
