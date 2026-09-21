@@ -144,6 +144,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/hour",
         "user": "2000/hour",
+        "ai_burst": "60/hour",
         "eval_session": "30/hour",
         "eval_reset": "10/hour",
     },
