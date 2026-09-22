@@ -1,17 +1,28 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "npm --prefix frontend ci",
-  "buildCommand": "npm run build --prefix frontend && python backend/manage.py collectstatic --noinput",
+  "buildCommand": "npm --prefix frontend ci && VITE_API_URL=${VITE_API_URL:-same-origin} npm --prefix frontend run build:prod",
   "outputDirectory": "frontend/dist",
   "functions": {
-    "api/index.py": {
+    "backend/config/wsgi.py": {
       "maxDuration": 300,
       "memory": 1024
     }
   },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index.py" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/welcome", "destination": "/index.html" },
+    { "source": "/workspace", "destination": "/index.html" },
+    { "source": "/login", "destination": "/index.html" },
+    { "source": "/register", "destination": "/index.html" },
+    { "source": "/contracts", "destination": "/index.html" },
+    { "source": "/contracts/:id", "destination": "/index.html" },
+    { "source": "/obligations", "destination": "/index.html" },
+    { "source": "/deadlines", "destination": "/index.html" },
+    { "source": "/risks", "destination": "/index.html" },
+    { "source": "/ask", "destination": "/index.html" },
+    { "source": "/search", "destination": "/index.html" },
+    { "source": "/audit", "destination": "/index.html" },
+    { "source": "/settings", "destination": "/index.html" },
+    { "source": "/architecture", "destination": "/index.html" }
   ],
   "crons": [
     { "path": "/api/internal/cron/recurring-deadlines/", "schedule": "0 2 * * *" },

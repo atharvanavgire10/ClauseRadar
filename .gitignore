@@ -68,3 +68,5 @@ celerybeat.pid
 # Misc
 *.tmp
 *.bak
+.vercel
+.env*

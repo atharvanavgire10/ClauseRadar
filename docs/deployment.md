@@ -106,19 +106,35 @@ Create a project from the GitHub repository (import, do not fork).
 Connect `ClauseRadar`, production branch `main` (or a release branch).
 
 ## 3. Configure project
-No framework preset is needed; `vercel.json` (committed) declares everything:
-- `installCommand`: frontend deps (`npm --prefix frontend ci`).
-- `buildCommand`: Vite build + `collectstatic` (WhiteNoise serves admin/static
-  from the function bundle).
-- `outputDirectory`: `frontend/dist` (SPA; `/api/*` rewrites to Django, all
-  other non-file routes fall back to `index.html`).
-- `functions.api/index.py`: `maxDuration` 300, memory 1024 — the ceiling for
-  the longest document-processing calls. Normal endpoints share the function
-  (a ceiling, not a cost). Hobby plans enforce shorter limits: large-document
+Set **Framework Preset to Django** in the Vercel project settings. This is
+required: it activates Vercel's native Django support, which discovers
+`backend/manage.py`, resolves the WSGI callable from `WSGI_APPLICATION`
+(`backend/config/wsgi.py`, variable `application`), adds `backend/` to the
+Python path, and runs `collectstatic` with WhiteNoise-manifest awareness.
+There is no `api/index.py` adapter — native detection makes it unnecessary,
+and it was removed for exactly that reason.
+
+`vercel.json` (committed) declares the rest:
+- **No `installCommand`.** A custom install command disables Vercel's Python
+  dependency installation entirely, which previously deployed a function with
+  no Django in it (`ModuleNotFoundError: No module named 'django'` on every
+  request). Frontend deps install inside `buildCommand` instead.
+- `buildCommand`: frontend `ci` + production Vite build with the API-origin
+  guard (`VITE_API_URL`, defaulting to `same-origin`). No manual
+  `collectstatic` step — the native Django hook runs it.
+- `outputDirectory`: `frontend/dist` (SPA static files win over routes).
+- `functions.backend/config/wsgi.py`: `maxDuration` 300, memory 1024 — the
+  ceiling for the longest document-processing calls. Normal endpoints share
+  the function (a ceiling, not a cost). Confirm the limits on the Functions
+  tab after deploy. Hobby plans enforce shorter limits: large-document
   uploads may time out there; production workloads need Pro/Fluid.
-- Root `requirements.txt` includes `backend/requirements.txt` for the Python
-  runtime (declared 3.12 via `.python-version`); `api/index.py` is a thin WSGI
-  adapter reusing `backend/config/wsgi.py` — no business logic duplicated.
+- `rewrites`: explicit SPA routes → `/index.html`. There is deliberately **no**
+  `/api/*` rule: API paths fall through to the Django service. If a SPA route
+  is added to `frontend/src/App.tsx`, add its path here too.
+- Root `requirements.txt` carries the full pinned production set (no test
+  deps); `backend/requirements.txt` keeps the local/Docker set. A test pins
+  the production subsets equal so they cannot drift.
+- `crons` invoke the Django cron endpoints (see 7).
 
 ## 4. Configure PostgreSQL
 Create a Neon project/database and copy its pooled connection string. Neon
