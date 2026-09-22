@@ -88,12 +88,13 @@ Serve the **same product** (same Django code, same React SPA, same database
 schema) from a single Vercel project — no servers, no Redis, no worker:
 
 ```
-Browser (SPA static, same origin)
-  │  /api/* rewrites → Python serverless function (Django WSGI)
+Browser (same origin)
   ▼
-Django ──► Neon PostgreSQL (DATABASE_URL)
-  ├─► Vercel Blob, private (documents + evidence)
-  └─► Vercel Cron ──► /api/internal/cron/* (Bearer CRON_SECRET)
+Vercel: static files + Django service (native Python runtime)
+  ├─► /*.js, /*.css, /assets/* … → collected static (CDN)
+  ├─► /api/*, /admin/* → Django (PostgreSQL + private Blob + Cron)
+  └─► SPA routes (/, /welcome, /contracts, …) → Django renders index.html
+     (Vite base /static/ + WhiteNoise manifest, no separate web service)
 ```
 
 The Docker + Celery stack (`docker-compose.prod.yml`) remains intact as the
@@ -120,17 +121,21 @@ and it was removed for exactly that reason.
   no Django in it (`ModuleNotFoundError: No module named 'django'` on every
   request). Frontend deps install inside `buildCommand` instead.
 - `buildCommand`: frontend `ci` + production Vite build with the API-origin
-  guard (`VITE_API_URL`, defaulting to `same-origin`). No manual
-  `collectstatic` step — the native Django hook runs it.
-- `outputDirectory`: `frontend/dist` (SPA static files win over routes).
+  guard (`VITE_API_URL`, defaulting to `same-origin`) + `sync-spa.js`, which
+  copies `frontend/dist/index.html` → `backend/templates/index.html` and
+  `frontend/dist/assets/` → `backend/static/assets/` **before** the native
+  Django hook runs `collectstatic`. No manual `collectstatic` step.
+- **No `outputDirectory`, no `rewrites`.** Django serves the SPA itself: Vite
+  builds with `base: "/static/"`, so asset URLs resolve through WhiteNoise
+  (hashed manifest names); a Django catch-all **after** all API/admin routes
+  renders `index.html` for `/`, `/welcome`, `/contracts`, … while `/api/*`,
+  `/admin/`, and `/static/*` keep precedence. Where the template was never
+  built (local dev, Docker), the view stays 404 as before.
 - `functions.backend/config/wsgi.py`: `maxDuration` 300, memory 1024 — the
   ceiling for the longest document-processing calls. Normal endpoints share
   the function (a ceiling, not a cost). Confirm the limits on the Functions
   tab after deploy. Hobby plans enforce shorter limits: large-document
   uploads may time out there; production workloads need Pro/Fluid.
-- `rewrites`: explicit SPA routes → `/index.html`. There is deliberately **no**
-  `/api/*` rule: API paths fall through to the Django service. If a SPA route
-  is added to `frontend/src/App.tsx`, add its path here too.
 - Root `requirements.txt` carries the full pinned production set (no test
   deps); `backend/requirements.txt` keeps the local/Docker set. A test pins
   the production subsets equal so they cannot drift.

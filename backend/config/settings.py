@@ -73,7 +73,10 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        # backend/templates holds the built React SPA entrypoint
+        # (frontend/dist/index.html copied there by scripts/sync-spa.js
+        # during the Vercel build; absent in local dev).
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -112,6 +115,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# backend/static holds the built React SPA assets (frontend/dist/assets/
+# copied there by scripts/sync-spa.js during the Vercel build) so
+# collectstatic serves them from /static/ with hashed names. The directory
+# exists only after a frontend build, hence the conditional (avoids a
+# staticfiles.W004 warning on every local manage.py invocation).
+STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").is_dir() else []
 
 # Deployment target switches (Vercel-native vs Docker/local). Defined before
 # STORAGES because the default backend selection reads them.

@@ -570,26 +570,20 @@ def test_celery_docker_path_intact():
 def test_vercel_json_structure():
     """vercel.json wires the native Django runtime: no custom installCommand
     (it would disable Python dependency installation), frontend build with
-    API-origin guard, function limits on the resolved WSGI entrypoint,
-    explicit SPA routes, and unchanged crons."""
+    API-origin guard plus SPA sync into the Django tree, function limits on
+    the resolved WSGI entrypoint, and unchanged crons. Django itself serves
+    the SPA, so there is no outputDirectory and no rewrites at all."""
     root = os.path.join(os.path.dirname(__file__), "..")
     with open(os.path.join(root, "vercel.json")) as fh:
         config = json.load(fh)
     assert "installCommand" not in config  # custom install disables Python deps
-    assert config["outputDirectory"] == "frontend/dist"
+    assert "outputDirectory" not in config  # Django serves the SPA itself
+    assert "rewrites" not in config  # Django catch-all serves SPA routes
     assert "build:prod" in config["buildCommand"]
+    assert "sync-spa" in config["buildCommand"]  # dist -> Django tree pre-collectstatic
     assert "collectstatic" not in config["buildCommand"]  # native Django hook runs it
     func = config["functions"]["backend/config/wsgi.py"]
     assert func["maxDuration"] == 300  # extended only for the API function
-    destinations = [r["destination"] for r in config["rewrites"]]
-    assert not any("api/index.py" in d for d in destinations)
-    assert all(d == "/index.html" for d in destinations)  # SPA fallback only
-    sources = [r["source"] for r in config["rewrites"]]
-    for route in ("/welcome", "/login", "/contracts", "/contracts/:id",
-                  "/obligations", "/deadlines", "/risks", "/ask",
-                  "/search", "/audit", "/settings", "/architecture"):
-        assert route in sources, f"SPA route missing from rewrites: {route}"
-    assert not any(s.startswith("/api") for s in sources)  # /api/* falls through to Django
     cron_paths = [c["path"] for c in config["crons"]]
     assert "/api/internal/cron/recurring-deadlines/" in cron_paths
     assert "/api/internal/cron/deadline-scan/" in cron_paths
@@ -646,3 +640,128 @@ def test_api_health_routing_valid():
     from django.urls import reverse
 
     assert reverse("health") == "/api/health/"
+
+
+# ---------------------------------------------------------------------------
+# React SPA served by Django (native Vercel deployment).
+# ---------------------------------------------------------------------------
+
+SPA_ROUTES = ["/", "/welcome", "/workspace", "/login", "/register",
+              "/contracts", "/contracts/abc-123", "/obligations",
+              "/deadlines", "/risks", "/ask", "/search", "/audit",
+              "/settings", "/architecture"]
+
+SPA_INDEX_HTML = (
+    "<!doctype html><html><head>"
+    '<script src="/static/assets/app-abc123.js"></script>'
+    '<link rel="stylesheet" href="/static/assets/app-abc123.css">'
+    "</head><body><div id=root></div></body></html>"
+)
+
+
+def _spa_template_settings(tmp_path):
+    from django.conf import settings as _settings
+
+    (tmp_path / "index.html").write_text(SPA_INDEX_HTML)
+    base = dict(_settings.TEMPLATES[0])
+    base["DIRS"] = [str(tmp_path)]
+    return [base]
+
+
+def test_spa_template_dirs_configured():
+    from django.conf import settings as _settings
+
+    assert str(_settings.BASE_DIR / "templates") in [str(d) for d in _settings.TEMPLATES[0]["DIRS"]]
+    # backend/static exists only after a frontend build (sync-spa.js); the
+    # setting mirrors that so local manage.py stays warning-free.
+    expected = [str(_settings.BASE_DIR / "static")] if (_settings.BASE_DIR / "static").is_dir() else []
+    assert [str(d) for d in _settings.STATICFILES_DIRS] == expected
+
+
+def test_spa_view_serves_entrypoint(tmp_path):
+    from django.test import Client, override_settings
+
+    with override_settings(TEMPLATES=_spa_template_settings(tmp_path)):
+        response = Client().get("/")
+    assert response.status_code == 200
+    assert "/static/" in response.content.decode()
+    assert "text/html" in response["Content-Type"]
+
+
+def test_spa_view_missing_template_is_404(tmp_path):
+    """Where the SPA was never built (local dev, Docker), / stays 404."""
+    from django.test import Client, override_settings
+
+    with override_settings(TEMPLATES=_spa_template_settings(tmp_path)):
+        (tmp_path / "index.html").unlink()
+        assert Client().get("/contracts").status_code == 404
+
+
+def test_spa_routes_render(tmp_path):
+    from django.test import Client, override_settings
+
+    with override_settings(TEMPLATES=_spa_template_settings(tmp_path)):
+        client = Client()
+        for route in SPA_ROUTES:
+            assert client.get(route).status_code == 200, route
+
+
+def test_api_routes_not_swallowed(tmp_path):
+    from django.test import Client, override_settings
+
+    with override_settings(TEMPLATES=_spa_template_settings(tmp_path)):
+        response = Client().get("/api/health/")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
+
+
+def test_admin_still_django(tmp_path):
+    from django.test import Client, override_settings
+
+    with override_settings(TEMPLATES=_spa_template_settings(tmp_path)):
+        response = Client().get("/admin/")
+    assert response.status_code == 302
+    assert "/admin/login/" in response["Location"]
+
+
+def test_finders_locate_spa_assets(tmp_path):
+    from django.contrib.staticfiles import finders
+    from django.test import override_settings
+
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "app-abc123.js").write_text("console.log(1)")
+    with override_settings(STATICFILES_DIRS=[str(tmp_path)]):
+        found = finders.find("assets/app-abc123.js")
+    assert found is not None and found.endswith("app-abc123.js")
+
+
+def test_sync_spa_script(tmp_path):
+    """sync-spa.js mirrors a Vite dist into Django template/static dirs."""
+    import subprocess
+
+    root = os.path.join(os.path.dirname(__file__), "..")
+    dist = tmp_path / "dist"
+    (dist / "assets").mkdir(parents=True)
+    (dist / "index.html").write_text(SPA_INDEX_HTML)
+    (dist / "assets" / "app-abc123.js").write_text("console.log(1)")
+    templates_dir = tmp_path / "templates"
+    static_dir = tmp_path / "static"
+    proc = subprocess.run(
+        ["node", "frontend/scripts/sync-spa.js",
+         f"--dist-dir={dist}", f"--templates-dir={templates_dir}", f"--static-dir={static_dir}"],
+        cwd=root, capture_output=True, text=True, timeout=120,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert (templates_dir / "index.html").read_text() == SPA_INDEX_HTML
+    assert (static_dir / "assets" / "app-abc123.js").read_text() == "console.log(1)"
+
+
+def test_sync_spa_defaults_point_at_django_tree():
+    """sync-spa.js defaults must be backend/templates + backend/static — the
+    locations settings.py and the Vercel build rely on."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "frontend", "scripts", "sync-spa.js")) as fh:
+        src = fh.read()
+    assert "join(root, 'backend', 'templates')" in src
+    assert "join(root, 'backend', 'static')" in src

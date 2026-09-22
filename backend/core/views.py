@@ -3,6 +3,9 @@ from __future__ import annotations
 
 from django.conf import settings
 from django.db import connection
+from django.http import Http404
+from django.shortcuts import render
+from django.template import TemplateDoesNotExist
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -42,3 +45,17 @@ def api_info_view(request):
             "endpoints": ["/api/health/", "/api/ready/", "/api/v1/"],
         }
     )
+
+
+def frontend_view(request):
+    """Serve the built React SPA entrypoint (Vercel native deployment).
+
+    backend/templates/index.html is produced by frontend/scripts/sync-spa.js
+    during the Vercel build. Where it is absent (local dev, Docker — where a
+    dedicated static server owns the SPA), fall through to 404 to preserve
+    existing behavior.
+    """
+    try:
+        return render(request, "index.html", content_type="text/html")
+    except TemplateDoesNotExist:
+        raise Http404("Frontend is not built for this deployment.")

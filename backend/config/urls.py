@@ -1,6 +1,6 @@
 """Root URL configuration."""
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from eval.views import eval_info, eval_reset, eval_session
 from rest_framework.routers import DefaultRouter
 
@@ -8,6 +8,7 @@ from ai.views import ai_ask, ai_classify, ai_status
 from audit.views import AuditEventViewSet
 from clauses.views import ClauseViewSet
 from contracts.views import ContractViewSet
+from core.views import frontend_view
 from deadlines.views import DeadlineViewSet
 from documents.views import DocumentViewSet
 from notifications.views import NotificationPreferenceViewSet, NotificationViewSet
@@ -51,4 +52,8 @@ urlpatterns = [
     path("api/v1/ai/ask/", ai_ask, name="ai-ask"),
     path("api/internal/cron/", include("cron.urls")),
     path("api/v1/", include(router.urls)),
+    # React SPA catch-all (native Vercel deployment serves the built frontend
+    # through Django itself). LAST on purpose: /api/*, /admin/, and /static/*
+    # keep precedence; everything else renders the SPA entrypoint.
+    re_path(r"^(?!api/|admin/|static/).*$", frontend_view, name="frontend"),
 ]
