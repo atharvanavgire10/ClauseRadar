@@ -84,26 +84,48 @@ def test_no_silent_sqlite_in_production():
     assert "DATABASE_URL" in proc.stderr
 
 
-def test_vercel_entrypoint_exports_wsgi_app():
-    """api/index.py must expose a Django WSGI app using existing config only."""
-    import importlib.util
+def test_native_django_entrypoint():
+    """Native runtime discovery target: backend/config/wsgi.py exposes `application`.
+
+    Vercel resolves the WSGI callable from WSGI_APPLICATION itself — no
+    api/index.py adapter may exist (asserted below).
+    """
     import subprocess
     import sys
 
-    root = os.path.join(os.path.dirname(__file__), "..")
+    backend_dir = os.path.join(os.path.dirname(__file__), "..", "backend")
     code = (
-        "import importlib.util;"
-        f"spec = importlib.util.spec_from_file_location('vercel_api', {root!r} + '/api/index.py');"
-        "mod = importlib.util.module_from_spec(spec);"
-        "spec.loader.exec_module(mod);"
-        "print(callable(mod.app))"
+        "import sys; sys.path.insert(0, '.');"
+        "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings');"
+        "from config.wsgi import application;"
+        "print(callable(application))"
     )
     proc = subprocess.run(
         [sys.executable, "-c", code],
-        cwd=root, capture_output=True, text=True, timeout=180,
+        cwd=backend_dir, capture_output=True, text=True, timeout=180,
     )
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "True"
+
+
+def test_no_legacy_adapter():
+    """Native Django mode: no api/index.py adapter and no rewrite to it."""
+    import json as _json
+
+    root = os.path.join(os.path.dirname(__file__), "..")
+    assert not os.path.exists(os.path.join(root, "api", "index.py"))
+    with open(os.path.join(root, "vercel.json")) as fh:
+        config = _json.load(fh)
+    blob = _json.dumps(config)
+    assert "api/index.py" not in blob
+
+
+def test_native_django_discoverable():
+    """backend/manage.py sets DJANGO_SETTINGS_MODULE (what Vercel executes)."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "backend", "manage.py")) as fh:
+        content = fh.read()
+    assert "DJANGO_SETTINGS_MODULE" in content
 
 
 # ---------------------------------------------------------------------------
@@ -527,18 +549,28 @@ def test_celery_docker_path_intact():
 
 
 def test_vercel_json_structure():
-    """vercel.json is valid and wires frontend, function, rewrites, crons."""
+    """vercel.json wires the native Django runtime: no custom installCommand
+    (it would disable Python dependency installation), frontend build with
+    API-origin guard, function limits on the resolved WSGI entrypoint,
+    explicit SPA routes, and unchanged crons."""
     root = os.path.join(os.path.dirname(__file__), "..")
     with open(os.path.join(root, "vercel.json")) as fh:
         config = json.load(fh)
+    assert "installCommand" not in config  # custom install disables Python deps
     assert config["outputDirectory"] == "frontend/dist"
-    assert "collectstatic" in config["buildCommand"]
-    func = config["functions"]["api/index.py"]
+    assert "build:prod" in config["buildCommand"]
+    assert "collectstatic" not in config["buildCommand"]  # native Django hook runs it
+    func = config["functions"]["backend/config/wsgi.py"]
     assert func["maxDuration"] == 300  # extended only for the API function
-    assert os.path.exists(os.path.join(root, "api", "index.py"))
+    destinations = [r["destination"] for r in config["rewrites"]]
+    assert not any("api/index.py" in d for d in destinations)
+    assert all(d == "/index.html" for d in destinations)  # SPA fallback only
     sources = [r["source"] for r in config["rewrites"]]
-    assert "/api/:path*" in sources
-    assert any("index.html" in r["destination"] for r in config["rewrites"])  # SPA fallback
+    for route in ("/welcome", "/login", "/contracts", "/contracts/:id",
+                  "/obligations", "/deadlines", "/risks", "/ask",
+                  "/search", "/audit", "/settings", "/architecture"):
+        assert route in sources, f"SPA route missing from rewrites: {route}"
+    assert not any(s.startswith("/api") for s in sources)  # /api/* falls through to Django
     cron_paths = [c["path"] for c in config["crons"]]
     assert "/api/internal/cron/recurring-deadlines/" in cron_paths
     assert "/api/internal/cron/deadline-scan/" in cron_paths
@@ -552,3 +584,46 @@ def test_vercel_json_structure():
     # Root dependency files the Vercel build needs must exist.
     assert os.path.exists(os.path.join(root, "requirements.txt"))
     assert os.path.exists(os.path.join(root, ".python-version"))
+
+
+def test_requirements_chain_resolves_production_set():
+    """Root requirements.txt must resolve (following -r includes) to the full
+    pinned production set — this is what the Vercel build actually installs."""
+    import re
+
+    root = os.path.join(os.path.dirname(__file__), "..")
+    required = {"django", "djangorestframework", "django-cors-headers",
+                "django-filter", "psycopg", "pymupdf", "python-docx",
+                "pillow", "dj-database-url", "python-dotenv", "whitenoise"}
+    forbidden = {"pytest", "pytest-django", "factory-boy", "freezegun",
+                 "pytesseract", "tqdm", "requests", "vercel_blob", "vercel-blob"}
+
+    def _read(path):
+        with open(path) as fh:
+            return [ln.strip() for ln in fh if ln.strip() and not ln.strip().startswith("#")]
+
+    def _resolve(path, seen=None):
+        names = set()
+        seen = seen or set()
+        for line in _read(path):
+            if line.startswith("-r "):
+                target = os.path.normpath(os.path.join(os.path.dirname(path), line[3:].strip()))
+                if target not in seen:
+                    seen.add(target)
+                    names |= _resolve(target, seen)
+                continue
+            name = re.split(r"[<>=!;\s\[]", line, maxsplit=1)[0].strip().lower().replace("_", "-")
+            if name:
+                names.add(name)
+        return names
+
+    resolved = _resolve(os.path.join(root, "requirements.txt"))
+    assert required <= resolved, f"missing from production set: {required - resolved}"
+    assert not (forbidden & resolved), f"non-production deps leak: {forbidden & resolved}"
+
+
+def test_api_health_routing_valid():
+    """The /api/health route native Django will serve must reverse correctly."""
+    from django.urls import reverse
+
+    assert reverse("health") == "/api/health/"
