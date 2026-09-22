@@ -93,6 +93,9 @@ def test_native_django_entrypoint():
     This runs under Vercel conditions: cwd is the repository root (/var/task),
     backend/ is NOT on sys.path (isolated interpreter, clean environment), so
     wsgi.py itself must make `config.settings` importable before Django setup.
+    It asserts the load-bearing invariants — not just the final callable — so
+    a sys.path regression fails here instead of passing vacuously and then
+    failing in production with ModuleNotFoundError: No module named 'config'.
     """
     import subprocess
     import sys
@@ -103,6 +106,14 @@ def test_native_django_entrypoint():
         f"spec = importlib.util.spec_from_file_location('wsgi_under_test', {root!r} + '/backend/config/wsgi.py');"
         "mod = importlib.util.module_from_spec(spec);"
         "spec.loader.exec_module(mod);"
+        "import pathlib;"
+        "expected = pathlib.Path('.', 'backend').resolve();"
+        "actual = mod.BACKEND_DIR;"
+        "print('BACKEND_DIR=' + str(actual));"
+        "assert str(actual) == str(expected), actual;"
+        "assert str(actual) in sys.path, sys.path[:3];"
+        "found = importlib.util.find_spec('config');"
+        "assert found is not None and str(actual) in (found.origin or ''), found;"
         "print(callable(mod.application))"
     )
     env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
@@ -111,7 +122,9 @@ def test_native_django_entrypoint():
         cwd=root, capture_output=True, text=True, env=env, timeout=180,
     )
     assert proc.returncode == 0, proc.stderr
-    assert proc.stdout.strip() == "True"
+    lines = proc.stdout.strip().splitlines()
+    assert lines[-1] == "True"
+    assert any(line.startswith("BACKEND_DIR=") and line.endswith("backend") for line in lines)
 
 
 def test_no_legacy_adapter():
