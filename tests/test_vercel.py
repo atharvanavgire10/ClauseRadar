@@ -89,20 +89,26 @@ def test_native_django_entrypoint():
 
     Vercel resolves the WSGI callable from WSGI_APPLICATION itself — no
     api/index.py adapter may exist (asserted below).
+
+    This runs under Vercel conditions: cwd is the repository root (/var/task),
+    backend/ is NOT on sys.path (isolated interpreter, clean environment), so
+    wsgi.py itself must make `config.settings` importable before Django setup.
     """
     import subprocess
     import sys
 
-    backend_dir = os.path.join(os.path.dirname(__file__), "..", "backend")
+    root = os.path.join(os.path.dirname(__file__), "..")
     code = (
-        "import sys; sys.path.insert(0, '.');"
-        "import os; os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings');"
-        "from config.wsgi import application;"
-        "print(callable(application))"
+        "import importlib.util, sys;"
+        f"spec = importlib.util.spec_from_file_location('wsgi_under_test', {root!r} + '/backend/config/wsgi.py');"
+        "mod = importlib.util.module_from_spec(spec);"
+        "spec.loader.exec_module(mod);"
+        "print(callable(mod.application))"
     )
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
     proc = subprocess.run(
-        [sys.executable, "-c", code],
-        cwd=backend_dir, capture_output=True, text=True, timeout=180,
+        [sys.executable, "-I", "-c", code],
+        cwd=root, capture_output=True, text=True, env=env, timeout=180,
     )
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "True"
