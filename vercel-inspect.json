@@ -1,0 +1,108 @@
+{
+  "id": "dpl_4ekKfY6PQPjL1MyZQhhXWWRbXrCG",
+  "name": "clause-radar",
+  "url": "clause-radar-6472p8cb1-atharvas-projects-d1719307.vercel.app",
+  "target": "production",
+  "readyState": "READY",
+  "createdAt": 1790079830383,
+  "duration": {
+    "startTime": 1790079831349,
+    "endTime": 1790079857993,
+    "endTimeCapped": 1790079857993,
+    "timeToReady": 17871,
+    "timeToContainerExit": 26644,
+    "timeToContainerExitCapped": 26644,
+    "timeForBilling": 60000,
+    "cpuTimeForBilling": 120000
+  },
+  "buildMachine": {
+    "cores": 2,
+    "memory": 8192,
+    "machine": "basic",
+    "selectionType": "fixed",
+    "selectionSource": "plan-default"
+  },
+  "aliases": [
+    "clause-radar-psi.vercel.app",
+    "clause-radar-atharvas-projects-d1719307.vercel.app"
+  ],
+  "builds": [
+    {
+      "id": "bld_cce9o2q1i",
+      "deploymentId": "dpl_4ekKfY6PQPjL1MyZQhhXWWRbXrCG",
+      "entrypoint": ".",
+      "readyState": "READY",
+      "readyStateAt": 1790079829639,
+      "createdAt": 1790079829639,
+      "createdIn": "sfo1",
+      "use": "@vercel/vc-build",
+      "config": {
+        "framework": "python",
+        "installCommand": "npm --prefix frontend ci",
+        "buildCommand": "npm run build --prefix frontend && python backend/manage.py collectstatic --noinput",
+        "outputDirectory": "frontend/dist",
+        "nodeVersion": "24.x",
+        "projectCreatedAt": 1790015608501,
+        "vercelConfig": {
+          "$schema": "https://openapi.vercel.sh/vercel.json",
+          "installCommand": "npm --prefix frontend ci",
+          "buildCommand": "npm run build --prefix frontend",
+          "outputDirectory": "frontend/dist",
+          "functions": {
+            "api/index.py": {
+              "maxDuration": 300,
+              "memory": 1024
+            }
+          },
+          "rewrites": [
+            {
+              "source": "/api/:path*",
+              "destination": "/api/index.py"
+            },
+            {
+              "source": "/((?!api/).*)",
+              "destination": "/index.html"
+            }
+          ],
+          "crons": [
+            {
+              "path": "/api/internal/cron/recurring-deadlines/",
+              "schedule": "0 2 * * *"
+            },
+            {
+              "path": "/api/internal/cron/deadline-scan/",
+              "schedule": "30 2 * * *"
+            }
+          ],
+          "name": "clause-radar"
+        }
+      },
+      "middleware": [],
+      "output": [
+        {
+          "prerender": null,
+          "type": "lambda",
+          "path": "python",
+          "digest": "prj_O9veyxrsvTh7pgXu8OrsAwWwaRwF/c32a9c5e835007969df72d337e28f099b38743e412ca6328edfd1130711c99e9",
+          "mode": 49590,
+          "size": 6227762,
+          "lambda": {
+            "functionName": "team_j3uNnfmm8NbFjPWPSVm8ONcl-9b522d2473f5fec0f7e5d8c37c3dc8195f",
+            "deployedTo": [
+              "iad1"
+            ],
+            "runtime": "python3.12",
+            "memorySize": 2048,
+            "timeout": 300,
+            "layers": [
+              "arn:aws:lambda:AWS_REGION_PLACEHOLDER:977805900156:layer:vercel-rusty-runtime-nodejs-1_51_5-production-37441e2a83-AWS_ARCH_PLACEHOLDER:1"
+            ]
+          },
+          "edge": null
+        }
+      ],
+      "fingerprint": null
+    }
+  ],
+  "contextName": "atharvas-projects-d1719307"
+}
