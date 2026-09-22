@@ -194,12 +194,13 @@ Push to the production branch or press Deploy. The build installs frontend
 deps, builds the SPA, installs Python deps, and collects static files.
 
 ## 9. Run migrations
-Vercel has no pre-deploy hook and migrations never run per-request. Run once
-from any machine with the pinned dependencies and the **production**
-`DATABASE_URL` (deterministic, normal Django migrations):
-```bash
-DATABASE_URL='postgres://...' python backend/manage.py migrate
-```
+
+Vercel has no release hook. The committed production build command therefore
+runs Django's normal, idempotent `migrate --noinput` step when
+`VERCEL_ENV=production`, after Vercel has injected the production
+`DATABASE_URL`. It never runs migrations during a function request or in a
+preview build. Deploy the production branch to apply outstanding migrations;
+do not add migrations to WSGI startup code.
 
 ## 10. Seed evaluation workspace
 ```bash

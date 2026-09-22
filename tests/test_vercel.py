@@ -581,6 +581,10 @@ def test_vercel_json_structure():
     assert "rewrites" not in config  # Django catch-all serves SPA routes
     assert "build:prod" in config["buildCommand"]
     assert "sync-spa" in config["buildCommand"]  # dist -> Django tree pre-collectstatic
+    # Vercel has no release hook. Run normal, idempotent migrations only in a
+    # production build; never on function startup/request or preview builds.
+    assert "VERCEL_ENV" in config["buildCommand"]
+    assert "manage.py migrate --noinput" in config["buildCommand"]
     assert "collectstatic" not in config["buildCommand"]  # native Django hook runs it
     func = config["functions"]["backend/config/wsgi.py"]
     assert func["maxDuration"] == 300  # extended only for the API function

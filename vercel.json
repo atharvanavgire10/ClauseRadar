@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm --prefix frontend ci && VITE_API_URL=${VITE_API_URL:-same-origin} npm --prefix frontend run build:prod && node frontend/scripts/sync-spa.js",
+  "buildCommand": "if [ \"${VERCEL_ENV:-}\" = \"production\" ]; then python backend/manage.py migrate --noinput; fi && npm --prefix frontend ci && VITE_API_URL=${VITE_API_URL:-same-origin} npm --prefix frontend run build:prod && node frontend/scripts/sync-spa.js",
   "functions": {
     "backend/config/wsgi.py": {
       "maxDuration": 300,
