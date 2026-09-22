@@ -195,8 +195,8 @@ deps, builds the SPA, installs Python deps, and collects static files.
 
 ## 9. Run migrations
 
-Vercel has no release hook. The committed production build command therefore
-runs Django's normal, idempotent `migrate --noinput` step when
+Vercel has no release hook. The committed production build script (`scripts/vercel-build.sh`) therefore
+runs Django's normal, idempotent `migrate --noinput` and `seed_eval` steps when
 `VERCEL_ENV=production`, after Vercel has injected the production
 `DATABASE_URL`. It never runs migrations during a function request or in a
 preview build. Deploy the production branch to apply outstanding migrations;

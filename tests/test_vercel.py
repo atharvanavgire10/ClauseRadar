@@ -579,13 +579,20 @@ def test_vercel_json_structure():
     assert "installCommand" not in config  # custom install disables Python deps
     assert "outputDirectory" not in config  # Django serves the SPA itself
     assert "rewrites" not in config  # Django catch-all serves SPA routes
-    assert "build:prod" in config["buildCommand"]
-    assert "sync-spa" in config["buildCommand"]  # dist -> Django tree pre-collectstatic
+    assert config["buildCommand"] == "bash scripts/vercel-build.sh"
+    build_script = os.path.join(root, "scripts", "vercel-build.sh")
+    assert os.path.exists(build_script)
+    with open(build_script, encoding="utf-8") as bf:
+        script_content = bf.read()
+    assert "set -euo pipefail" in script_content
+    assert "build:prod" in script_content
+    assert "sync-spa" in script_content  # dist -> Django tree pre-collectstatic
     # Vercel has no release hook. Run normal, idempotent migrations only in a
     # production build; never on function startup/request or preview builds.
-    assert "VERCEL_ENV" in config["buildCommand"]
-    assert "manage.py migrate --noinput" in config["buildCommand"]
-    assert "collectstatic" not in config["buildCommand"]  # native Django hook runs it
+    assert "VERCEL_ENV" in script_content
+    assert "manage.py migrate --noinput" in script_content
+    assert "manage.py seed_eval" in script_content
+    assert "collectstatic" not in config.get("buildCommand", "")  # native Django hook runs it
     func = config["functions"]["backend/config/wsgi.py"]
     assert func["maxDuration"] == 300  # extended only for the API function
     cron_paths = [c["path"] for c in config["crons"]]
@@ -601,6 +608,22 @@ def test_vercel_json_structure():
     # Root dependency files the Vercel build needs must exist.
     assert os.path.exists(os.path.join(root, "requirements.txt"))
     assert os.path.exists(os.path.join(root, ".python-version"))
+
+
+def test_workspaces_workspace_migration_committed():
+    """Verify that the migration defining the workspaces_workspace table exists and is committed."""
+    from workspaces.models import Workspace
+    from importlib import import_module
+
+    migration_mod = import_module("workspaces.migrations.0001_initial")
+    migration_class = getattr(migration_mod, "Migration")
+    created_models = [
+        op.name for op in migration_class.operations
+        if hasattr(op, "name") and op.__class__.__name__ == "CreateModel"
+    ]
+    assert "Workspace" in created_models
+    assert "WorkspaceMembership" in created_models
+    assert Workspace._meta.db_table == "workspaces_workspace"
 
 
 def test_requirements_chain_resolves_production_set():
