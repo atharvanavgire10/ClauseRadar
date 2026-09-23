@@ -199,8 +199,16 @@ Vercel has no release hook. The committed production build script (`scripts/verc
 runs Django's normal, idempotent `migrate --noinput` and `seed_eval` steps when
 `VERCEL_ENV=production`, after Vercel has injected the production
 `DATABASE_URL`. It never runs migrations during a function request or in a
-preview build. Deploy the production branch to apply outstanding migrations;
-do not add migrations to WSGI startup code.
+preview build. Any failure (migrations or seed) fails the build loudly — the
+script uses `set -euo pipefail` with no error suppression. Deploy the
+production branch to apply outstanding migrations; do not add migrations to
+WSGI startup code.
+
+`seed_eval` is safe to run on every production build: it no-ops (reporting
+`skipped: True`) when a healthy evaluation workspace already exists, so
+recruiter uploads and review state survive redeploys. It only wipes and
+rebuilds on first deploy, on a corrupt/empty workspace, or via the explicit
+`POST /api/v1/eval/reset/` endpoint.
 
 ## 10. Seed evaluation workspace
 ```bash

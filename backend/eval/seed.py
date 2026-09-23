@@ -123,7 +123,51 @@ def _pdf_bytes(title: str, sentences: list[str]) -> bytes:
 
 @transaction.atomic
 def seed_eval_workspace() -> dict:
-    """(Re)build the public evaluation workspace. Returns summary stats."""
+    """Seed the eval workspace, or no-op when healthy seed data exists.
+
+    Safe to run on every production build: an existing workspace that
+    already holds contracts is left untouched (recruiter uploads and review
+    state survive redeploys). A missing or contract-less workspace triggers
+    a full wipe-and-rebuild inside one transaction (all-or-nothing).
+    Returns summary stats including "skipped".
+    """
+    from contracts.models import Contract
+    from workspaces.models import Workspace
+
+    existing = Workspace.objects.filter(
+        workspace_type="PUBLIC_EVAL", public_slug=EVAL_PUBLIC_SLUG
+    ).first()
+    if existing is not None and Contract.objects.filter(workspace=existing).exists():
+        return _summarize(existing, skipped=True)
+    return _build_eval_workspace()
+
+
+def _summarize(ws, *, skipped: bool) -> dict:
+    from audit.models import AuditEvent
+    from clauses.models import Clause
+    from contracts.models import Contract, ContractVersion
+    from deadlines.models import Deadline
+    from documents.models import Document as _D
+    from obligations.models import Obligation
+    from risks.models import RiskFinding
+
+    return {
+        "skipped": skipped,
+        "workspace": str(ws.id),
+        "contracts": Contract.objects.filter(workspace=ws).count(),
+        "versions": ContractVersion.objects.filter(contract__workspace=ws).count(),
+        "documents": _D.objects.filter(workspace=ws).count(),
+        "clauses": Clause.objects.filter(workspace=ws).count(),
+        "obligations": Obligation.objects.filter(workspace=ws).count(),
+        "deadlines": Deadline.objects.filter(workspace=ws).count(),
+        "risks": RiskFinding.objects.filter(workspace=ws).count(),
+        "audit": AuditEvent.objects.filter(workspace=ws).count(),
+    }
+
+
+@transaction.atomic
+def _build_eval_workspace() -> dict:
+    """Wipe-and-rebuild the eval workspace (used for first deploy + reset)."""
     from clauses.services import extract_clauses_for_document
     from contracts.models import Contract
     from contracts.versions import ensure_version_for_document
@@ -266,20 +310,4 @@ def seed_eval_workspace() -> dict:
     for contract, _ in contracts:
         assess_contract_risks(contract.id)
 
-    from audit.models import AuditEvent
-    from clauses.models import Clause
-    from deadlines.models import Deadline
-    from documents.models import Document as _D
-    from risks.models import RiskFinding
-
-    return {
-        "workspace": str(ws.id),
-        "contracts": Contract.objects.filter(workspace=ws).count(),
-        "versions": sum(1 for _ in contracts) + 2,
-        "documents": _D.objects.filter(workspace=ws).count(),
-        "clauses": Clause.objects.filter(workspace=ws).count(),
-        "obligations": Obligation.objects.filter(workspace=ws).count(),
-        "deadlines": Deadline.objects.filter(workspace=ws).count(),
-        "risks": RiskFinding.objects.filter(workspace=ws).count(),
-        "audit": AuditEvent.objects.filter(workspace=ws).count(),
-    }
+    return _summarize(ws, skipped=False)

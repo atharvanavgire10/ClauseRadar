@@ -41,7 +41,8 @@ if [ "${VERCEL_ENV:-}" = "production" ]; then
   echo "==> [vercel-build] Migrations completed successfully"
 
   echo "==> [vercel-build] Ensuring public evaluation workspace is seeded..."
-  $PYTHON_BIN backend/manage.py seed_eval || echo "Notice: seed_eval completed or skipped"
+  $PYTHON_BIN backend/manage.py seed_eval
+  echo "==> [vercel-build] seed_eval completed successfully"
 else
   echo "==> [vercel-build] Non-production environment (${VERCEL_ENV:-<unset>}); skipping database migrations"
 fi
@@ -58,3 +59,4 @@ echo "==> [vercel-build] Syncing SPA assets to Django directories..."
 node frontend/scripts/sync-spa.js
 
 echo "==> [vercel-build] Build finished successfully"
+
