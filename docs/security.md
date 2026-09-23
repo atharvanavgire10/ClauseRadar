@@ -11,7 +11,15 @@ endpoint for cross-workspace reads, writes, and list leakage.
 - Email + password with minimum-length validation; token (`Authorization: Token`)
   and session auth. Logout revokes tokens.
 - `SessionAuthentication` enforces CSRF for cookie-based clients; token clients
-  are CSRF-exempt by design (no cookies).
+  are CSRF-exempt by design (no cookies). When both credentials are present
+  (SPA sends the stored token plus same-origin cookies), the token identity
+  wins — otherwise a logged-in browser exploring the public evaluation
+  workspace would silently operate as the wrong user.
+- The CSRF cookie is readable by the SPA (`CSRF_COOKIE_HTTPONLY=False` always);
+  the frontend reads `csrftoken` from `document.cookie` and sends it as
+  `X-CSRFToken` on unsafe methods. A public GET (`/api/v1/eval/info/`) primes
+  the cookie first so the session bootstrap POST already has a token. If a
+  future config ever sets `CSRF_COOKIE_HTTPONLY=True`, Django refuses to start.
 - Public evaluation uses a locked-down visitor user (unusable password) with
   membership in ONLY the eval workspace, plus per-IP throttles
   (`eval_session` 30/hour, `eval_reset` 10/hour) and an eval upload cap (30 docs).

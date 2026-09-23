@@ -6,6 +6,7 @@ tenant-scoped viewsets; these endpoints just issue the session and reseed.
 """
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.views.decorators.csrf import ensure_csrf_cookie
 from rest_framework import status as http_status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes, throttle_classes
@@ -41,7 +42,12 @@ def _ensure_seeded():
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
+@ensure_csrf_cookie
 def eval_info(request):
+    """Public eval metadata. Also bootstraps the CSRF cookie: the SPA fetches
+    this on landing, so session-cookie-carrying browsers hold a token before
+    any POST (eval session bootstrap included). Exempt from nothing — CSRF
+    enforcement for session clients stays fully active."""
     ws = _eval_workspace()
     if ws is None:
         return Response({"enabled": getattr(settings, "PUBLIC_EVAL_ENABLED", True),

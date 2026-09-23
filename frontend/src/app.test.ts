@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { buildQuery, getErrorMessage } from './api';
+import { describe, expect, it, afterEach } from 'vitest';
+import { buildQuery, getCsrfToken, getErrorMessage } from './api';
 import { splitHighlight } from './highlight';
 import { validateContractTitle, validateDateOrder, validateEmail, validatePassword } from './validation';
 
@@ -31,6 +31,28 @@ describe('validation', () => {
     expect(validateContractTitle('Vendor Agreement')).toBeNull();
     expect(validateDateOrder('2026-05-01', '2026-04-01')).not.toBeNull();
     expect(validateDateOrder('2026-04-01', '2026-05-01')).toBeNull();
+  });
+});
+
+describe('getCsrfToken', () => {
+  afterEach(() => {
+    delete (globalThis as Record<string, unknown>).document;
+  });
+
+  it('returns null without a DOM', () => {
+    expect(getCsrfToken()).toBeNull();
+  });
+
+  it('reads the csrftoken cookie', () => {
+    (globalThis as Record<string, unknown>).document = {
+      cookie: 'sessionid=abc; csrftoken=tok%2B123; other=x',
+    };
+    expect(getCsrfToken()).toBe('tok+123');
+  });
+
+  it('returns null when absent', () => {
+    (globalThis as Record<string, unknown>).document = { cookie: 'sessionid=abc' };
+    expect(getCsrfToken()).toBeNull();
   });
 });
 

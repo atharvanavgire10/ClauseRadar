@@ -148,6 +148,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const explore = useCallback(async () => {
     setToken(null);
+    // Prime the CSRF cookie first: browsers carrying a session cookie need
+    // the token for the session POST below (eval/info sets it; harmless otherwise).
+    await api.evalInfo().catch(() => null);
     const res = await api.evalSession();
     setToken(res.token);
     setUser(res.user);
