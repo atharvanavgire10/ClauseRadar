@@ -155,8 +155,12 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        # Token first: an explicit credential always wins over an ambient
+        # session cookie. Otherwise a logged-in browser exploring the public
+        # evaluation workspace would silently operate as the wrong user
+        # (session shadows token). Session clients remain CSRF-enforced.
         "rest_framework.authentication.TokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
@@ -182,8 +186,19 @@ CORS_ALLOW_CREDENTIALS = True
 # (same list as CORS; entries must include the scheme).
 CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
 
-# Deployment target switches (Vercel-native vs Docker/local).
-# (Defined above, next to MEDIA settings, because STORAGES needs them.)
+# Frontend CSRF flow: the SPA reads the csrftoken cookie from document.cookie
+# and sends it back as X-CSRFToken on unsafe requests. That only works while the
+# cookie is readable by JS, so CSRF_COOKIE_HTTPONLY must stay False in every
+# environment. If a future config ever sets it True, Django refuses to start.
+_CSRF_COOKIE_HTTPONLY = os.environ.get("CSRF_COOKIE_HTTPONLY", "False").lower() in {"1", "true", "yes"}
+if _CSRF_COOKIE_HTTPONLY:
+    raise RuntimeError(
+        "CSRF_COOKIE_HTTPONLY=True is unsupported: the frontend reads the CSRF token "
+        "from document.cookie. Set CSRF_COOKIE_HTTPONLY=False (the default)."
+    )
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = os.environ.get("CSRF_COOKIE_SAMESITE", "Lax")
+
 # Vercel Blob (only used when DOCUMENT_STORAGE_BACKEND=vercel_blob).
 BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
 BLOB_API_BASE_URL = os.environ.get("BLOB_API_BASE_URL", "https://blob.vercel-storage.com")

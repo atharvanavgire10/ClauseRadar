@@ -66,3 +66,19 @@ def test_session_mutation_csrf_protected_and_working(setup):
     client.get("/api/v1/eval/info/")
     token = client.cookies["csrftoken"].value
     assert client.post(url, HTTP_X_CSRFTOKEN=token).status_code == 200
+
+
+def test_token_takes_precedence_over_session_cookie(setup):
+    """A request carrying both a session cookie (user A) and a token (user B)
+    must authenticate as the token holder. Otherwise a logged-in browser that
+    explores the public evaluation workspace silently operates as the wrong
+    user (empty workspace list, wrong identity on mutations)."""
+    other = User.objects.create_user(email="other@example.com", password="password123")
+    from rest_framework.authtoken.models import Token as AuthToken
+
+    visitor_token = AuthToken.objects.create(user=other)
+    client = APIClient(enforce_csrf_checks=True)
+    client.force_login(setup["user"])  # session cookie for user A
+    r = client.get("/api/v1/auth/me/", HTTP_AUTHORIZATION=f"Token {visitor_token.key}")
+    assert r.status_code == 200
+    assert r.json()["email"] == "other@example.com"
