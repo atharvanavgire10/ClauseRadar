@@ -824,11 +824,17 @@ def test_gitattributes_pins_shell_line_endings():
 
 def test_backend_python_version_pinned():
     """The Django entrypoint lives in backend/, so backend/ declares the
-    Python version too — the runtime resolves it next to the entrypoint."""
+    Python version too — the runtime resolves it next to the entrypoint.
+
+    The version files must be clean LF (no CRLF): Vercel reads them at build/
+    runtime, and a stray CR from a Windows checkout is subtle but unnecessary.
+    """
     root = os.path.join(os.path.dirname(__file__), "..")
-    with open(os.path.join(root, ".python-version")) as fh:
-        root_version = fh.read().strip()
+    with open(os.path.join(root, ".python-version"), "rb") as fh:
+        root_bytes = fh.read()
+    assert root_bytes == b"3.12\n", root_bytes
     backend_version_path = os.path.join(root, "backend", ".python-version")
     assert os.path.exists(backend_version_path)
-    with open(backend_version_path) as fh:
-        assert fh.read().strip() == root_version == "3.12"
+    with open(backend_version_path, "rb") as fh:
+        backend_bytes = fh.read()
+    assert backend_bytes == b"3.12\n", backend_bytes
