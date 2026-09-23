@@ -114,9 +114,14 @@ class DocumentViewSet(viewsets.ModelViewSet):
             metadata={"filename": filename, "mime": mime, "size": doc.size_bytes, "contract": str(contract.id)},
         )
         # Process now: eager inline when no worker, background task otherwise.
+        # Vercel deployments have no Redis/worker, so VERCEL_DEPLOYMENT always
+        # processes synchronously via the same service (never a fake status:
+        # the response below reflects the final stored state).
         from django.conf import settings as dj_settings
 
-        if getattr(dj_settings, "CELERY_TASK_ALWAYS_EAGER", True):
+        if getattr(dj_settings, "CELERY_TASK_ALWAYS_EAGER", True) or getattr(
+            dj_settings, "VERCEL_DEPLOYMENT", False
+        ):
             process_document(doc.id)
         else:
             from .tasks import process_document_task

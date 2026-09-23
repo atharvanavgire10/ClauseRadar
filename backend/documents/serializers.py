@@ -5,6 +5,10 @@ from .models import Document, DocumentPage
 
 class DocumentSerializer(serializers.ModelSerializer):
     workspace_slug = serializers.SlugField(source="workspace.slug", read_only=True)
+    # Opaque storage identifier (local path or Blob reference) — never a
+    # directly-fetchable URL. Downloads go through the permission-checked
+    # download endpoint, which is what keeps private files private.
+    file = serializers.SerializerMethodField()
 
     class Meta:
         model = Document
@@ -18,6 +22,9 @@ class DocumentSerializer(serializers.ModelSerializer):
             "sha256", "status", "page_count", "error_message", "ocr_used",
             "processed_at", "created_at", "updated_at",
         )
+
+    def get_file(self, obj):
+        return obj.file.name if obj.file else None
 
 
 class DocumentPageSerializer(serializers.ModelSerializer):

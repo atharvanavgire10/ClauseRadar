@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "bash scripts/vercel-build.sh",
+  "functions": {
+    "backend/config/wsgi.py": {
+      "maxDuration": 300,
+      "memory": 1024
+    }
+  },
+  "crons": [
+    { "path": "/api/internal/cron/recurring-deadlines/", "schedule": "0 2 * * *" },
+    { "path": "/api/internal/cron/deadline-scan/", "schedule": "30 2 * * *" }
+  ]
+}

@@ -14,6 +14,44 @@ from .extraction import extract_docx_pages, extract_pdf_pages
 from .models import Document, DocumentPage
 
 
+def resolve_local_path(storage, name: str) -> tuple[str, object | None]:
+    """Return (filesystem path, cleanup|None) for a stored file.
+
+    Local storages expose direct paths. Remote storages (Vercel Blob) are
+    downloaded to a temp file that the caller must delete via cleanup().
+    PyMuPDF/python-docx need real files, so streaming is not an option here.
+    """
+    try:
+        return storage.path(name), None
+    except NotImplementedError:
+        pass
+    import os
+    import tempfile
+    from urllib.parse import urlparse
+
+    suffix = os.path.splitext(urlparse(name).path)[1] or ".bin"
+    with storage.open(name, "rb") as source:
+        data = source.read()
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    try:
+        tmp.write(data)
+        tmp.close()
+    except Exception:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        raise
+
+    def cleanup() -> None:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+
+    return tmp.name, cleanup
+
+
 def process_document(document_id, *, force: bool = False) -> Document:
     from django.core.files.storage import default_storage
 
@@ -35,13 +73,18 @@ def process_document(document_id, *, force: bool = False) -> Document:
     try:
         if not doc.file or not default_storage.exists(doc.file.name):
             raise RuntimeError("Stored file is missing.")
-        file_path = default_storage.path(doc.file.name)
-        if doc.mime == "application/pdf":
-            page_texts, ocr_used = extract_pdf_pages(file_path)
-        elif doc.mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-            page_texts, ocr_used = extract_docx_pages(file_path)
-        else:
-            raise RuntimeError(f"Unsupported document type: {doc.mime}")
+        # Local storages resolve directly; remote (Blob) downloads to temp.
+        file_path, cleanup = resolve_local_path(default_storage, doc.file.name)
+        try:
+            if doc.mime == "application/pdf":
+                page_texts, ocr_used = extract_pdf_pages(file_path)
+            elif doc.mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                page_texts, ocr_used = extract_docx_pages(file_path)
+            else:
+                raise RuntimeError(f"Unsupported document type: {doc.mime}")
+        finally:
+            if cleanup is not None:
+                cleanup()
         if not any(t.strip() for t in page_texts):
             raise RuntimeError(
                 "No readable text found. The file may be a scanned image — "
