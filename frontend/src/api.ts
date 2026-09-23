@@ -27,6 +27,28 @@ export function setToken(token: string | null): void {
   }
 }
 
+/** Read the Django csrftoken cookie (CSRF_COOKIE_HTTPONLY must stay False). */
+export function getCsrfToken(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+const UNSAFE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
+
+/** Shared auth headers for raw fetch calls: token always, CSRF token on
+ * unsafe methods for session-cookie (same-origin browser) clients. */
+function authHeaders(method = 'GET'): Record<string, string> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Token ${token}`;
+  if (UNSAFE_METHODS.has(method.toUpperCase())) {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) headers['X-CSRFToken'] = csrfToken;
+  }
+  return headers;
+}
+
 export interface ApiErrorShape {
   detail?: string;
   code?: string;
@@ -49,11 +71,16 @@ export function buildQuery(params: Record<string, string | number | undefined | 
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
+  const method = (init?.method ?? 'GET').toUpperCase();
+  // Session-cookie clients (same-origin browser) must accompany unsafe
+  // requests with the CSRF token; token-header API clients are unaffected.
+  const csrfToken = UNSAFE_METHODS.has(method) ? getCsrfToken() : null;
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Token ${token}` } : {}),
+      ...(csrfToken ? { 'X-CSRFToken': csrfToken } : {}),
       ...(init?.headers ?? {}),
     },
     ...init,
@@ -419,23 +446,21 @@ export const api = {
   reprocessDocument: (id: string) =>
     request<Document>(`/api/v1/documents/${id}/reprocess/`, { method: 'POST' }),
   deleteDocument: async (id: string): Promise<void> => {
-    const token = getToken();
     const res = await fetch(`${API_BASE}/api/v1/documents/${id}/`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: token ? { Authorization: `Token ${token}` } : {},
+      headers: authHeaders('DELETE'),
     });
     if (!res.ok) throw new Error(`Delete failed (${res.status})`);
   },
   uploadDocument: async (contractId: string, file: File): Promise<Document> => {
-    const token = getToken();
     const form = new FormData();
     form.append('contract', contractId);
     form.append('file', file, file.name);
     const res = await fetch(`${API_BASE}/api/v1/documents/`, {
       method: 'POST',
       credentials: 'include',
-      headers: token ? { Authorization: `Token ${token}` } : {},
+      headers: authHeaders('POST'),
       body: form,
     });
     const body = await res.json().catch(() => null);
@@ -479,23 +504,21 @@ export const api = {
 
   evidenceList: (query = '') => request<Paginated<EvidenceItem>>(`/api/v1/evidence/${query}`),
   uploadEvidence: async (obligationId: string, file: File, note?: string): Promise<EvidenceItem> => {
-    const token = getToken();
     const form = new FormData();
     form.append('obligation', obligationId);
     form.append('file', file, file.name);
     if (note) form.append('note', note);
     const res = await fetch(`${API_BASE}/api/v1/evidence/`, {
       method: 'POST', credentials: 'include',
-      headers: token ? { Authorization: `Token ${token}` } : {}, body: form,
+      headers: authHeaders('POST'), body: form,
     });
     const body = await res.json().catch(() => null);
     if (!res.ok) throw new Error((body as { detail?: string })?.detail ?? `Upload failed (${res.status})`);
     return body as EvidenceItem;
   },
   deleteEvidence: async (id: string): Promise<void> => {
-    const token = getToken();
     const res = await fetch(`${API_BASE}/api/v1/evidence/${id}/`, {
-      method: 'DELETE', credentials: 'include', headers: token ? { Authorization: `Token ${token}` } : {},
+      method: 'DELETE', credentials: 'include', headers: authHeaders('DELETE'),
     });
     if (!res.ok) throw new Error(`Delete failed (${res.status})`);
   },
@@ -527,10 +550,9 @@ export const api = {
   activateObligation: (id: string) => request<Obligation>(`/api/v1/obligations/${id}/activate/`, { method: 'POST' }),
   clauses: (query = '') => request<Paginated<Clause>>(`/api/v1/clauses/${query}`),
   downloadDocument: async (id: string, filename: string): Promise<void> => {
-    const token = getToken();
     const res = await fetch(`${API_BASE}/api/v1/documents/${id}/download/`, {
       credentials: 'include',
-      headers: token ? { Authorization: `Token ${token}` } : {},
+      headers: authHeaders('GET'),
     });
     if (!res.ok) throw new Error(`Download failed (${res.status})`);
     const blob = await res.blob();
