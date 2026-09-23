@@ -1,0 +1,4 @@
+# Shell scripts MUST keep LF endings on every checkout: Vercel executes
+# scripts/vercel-build.sh with bash, and CRLF breaks it (exit 2 in seconds).
+# This protects Windows working copies deployed via the Vercel CLI.
+*.sh text eol=lf

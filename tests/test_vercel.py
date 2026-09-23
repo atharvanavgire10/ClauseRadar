@@ -794,3 +794,41 @@ def test_sync_spa_defaults_point_at_django_tree():
         src = fh.read()
     assert "join(root, 'backend', 'templates')" in src
     assert "join(root, 'backend', 'static')" in src
+
+
+def test_vercel_build_script_unix_line_endings():
+    """scripts/vercel-build.sh is executed by bash on Vercel: a single CR
+    byte fails the whole deployment (exit 2 in seconds). This guards the
+    Windows-working-copy failure mode that broke a production deploy."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "scripts", "vercel-build.sh"), "rb") as fh:
+        content = fh.read()
+    assert b"\r" not in content
+    assert content.startswith(b"#!/usr/bin/env bash\n")
+
+
+def test_gitattributes_pins_shell_line_endings():
+    import subprocess
+
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, ".gitattributes")) as fh:
+        attributes = fh.read()
+    assert "*.sh" in attributes and "eol=lf" in attributes
+    proc = subprocess.run(
+        ["git", "check-attr", "eol", "scripts/vercel-build.sh"],
+        cwd=root, capture_output=True, text=True, timeout=60,
+    )
+    assert proc.returncode == 0
+    assert "eol: lf" in proc.stdout
+
+
+def test_backend_python_version_pinned():
+    """The Django entrypoint lives in backend/, so backend/ declares the
+    Python version too — the runtime resolves it next to the entrypoint."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, ".python-version")) as fh:
+        root_version = fh.read().strip()
+    backend_version_path = os.path.join(root, "backend", ".python-version")
+    assert os.path.exists(backend_version_path)
+    with open(backend_version_path) as fh:
+        assert fh.read().strip() == root_version == "3.12"
