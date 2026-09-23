@@ -35,7 +35,7 @@ def _redacted(message: str, token: str) -> str:
 class VercelBlobClient:
     """Minimal private Blob client. `base_url` is injectable for tests."""
 
-    def __init__(self, *, base_url: str, token: str, api_version: str = "10", timeout: int = 30):
+    def __init__(self, *, base_url: str, token: str, api_version: str = "12", timeout: int = 30):
         if not token:
             raise BlobError("BLOB_READ_WRITE_TOKEN is not configured.")
         self.base_url = base_url.rstrip("/")
@@ -74,9 +74,12 @@ class VercelBlobClient:
         if not pathname or pathname.startswith("/"):
             raise BlobError("Blob pathname must be a non-empty relative path.")
         url = f"{self.base_url}/?pathname={urllib.parse.quote(pathname)}"
+        # Header names follow the official @vercel/blob SDK (put-helpers.ts):
+        # access travels as `x-vercel-blob-access`, NOT `access` (which the
+        # server ignores, defaulting to public and failing on private stores).
         headers = self._headers({
             "x-content-type": content_type or mimetypes.guess_type(pathname)[0] or "application/octet-stream",
-            "access": "private" if private else "public",
+            "x-vercel-blob-access": "private" if private else "public",
             "x-allow-overwrite": "1",
         })
         status, body = self._request("PUT", url, headers=headers, data=data)

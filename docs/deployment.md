@@ -169,7 +169,7 @@ Set on the Vercel project (Production + Preview as appropriate):
 | `DOCUMENT_STORAGE_BACKEND` | `vercel_blob` |
 | `BLOB_READ_WRITE_TOKEN` | auto-provisioned when the store is connected |
 | `BLOB_API_BASE_URL` | default `https://blob.vercel-storage.com` |
-| `BLOB_API_VERSION` | default `10` (bump only if Blob rejects private uploads) |
+| `BLOB_API_VERSION` | default `12` (current official Blob API version; bump only if Blob rejects uploads) |
 | `BLOB_PRIVATE` | `True` |
 | `PUBLIC_EVAL_ENABLED` | `True` (recruiter workspace; same throttles/caps, no Celery needed) |
 | `PUBLIC_EVAL_SLUG` | `eval` |

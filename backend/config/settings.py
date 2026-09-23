@@ -187,7 +187,7 @@ CSRF_TRUSTED_ORIGINS = list(CORS_ALLOWED_ORIGINS)
 # Vercel Blob (only used when DOCUMENT_STORAGE_BACKEND=vercel_blob).
 BLOB_READ_WRITE_TOKEN = os.environ.get("BLOB_READ_WRITE_TOKEN", "")
 BLOB_API_BASE_URL = os.environ.get("BLOB_API_BASE_URL", "https://blob.vercel-storage.com")
-BLOB_API_VERSION = os.environ.get("BLOB_API_VERSION", "10")
+BLOB_API_VERSION = os.environ.get("BLOB_API_VERSION", "12")
 BLOB_PRIVATE = os.environ.get("BLOB_PRIVATE", "True").lower() in {"1", "true", "yes"}
 
 # Internal cron protection (Vercel Cron sends Authorization: Bearer <CRON_SECRET>).

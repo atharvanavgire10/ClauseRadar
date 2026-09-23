@@ -175,7 +175,8 @@ class _FakeBlobHandler(BaseHTTPRequestHandler):
         type(self).seen.append({
             "method": "PUT", "pathname": pathname,
             "authorization": self.headers.get("authorization"),
-            "access": self.headers.get("access"),
+            "access": self.headers.get("x-vercel-blob-access"),
+            "api_version": self.headers.get("x-api-version"),
             "content_type": self.headers.get("x-content-type"),
         })
         if not self._auth_ok():
@@ -269,7 +270,8 @@ def test_blob_client_private_crud(blob_server):
     result = client.put("docs/a.pdf", b"%PDF-1.4 data", content_type="application/pdf")
     assert result.url.startswith(blob_server)
     put = [r for r in _FakeBlobHandler.seen if r["method"] == "PUT"][0]
-    assert put["access"] == "private"  # never public
+    assert put["access"] == "private"  # official x-vercel-blob-access header; never public
+    assert put["api_version"] == "12"  # current official Blob API version
     assert put["authorization"] == "Bearer test-token"
     assert client.exists(result.url) is True
     assert client.download(result.url) == b"%PDF-1.4 data"
